@@ -1,0 +1,25 @@
+{
+  "groundY": 0.1,
+  "surface": {
+    "min": 0.1,
+    "max": 0.1,
+    "median": 0.1
+  },
+  "bounds": {
+    "minX": -60,
+    "maxX": 60,
+    "minZ": -75,
+    "maxZ": 75
+  },
+  "spawn": {
+    "x": 12,
+    "z": 49.5,
+    "clearance": 9.39,
+    "face": -2.9,
+    "freeAhead": 30
+  },
+  "spawnGroundY": 0.1,
+  "counts": {
+    "obstacles": 96
+  }
+}
