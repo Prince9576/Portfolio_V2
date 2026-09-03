@@ -8,6 +8,7 @@ import { useTheatre } from '../../stores/theatreStore.js'
 import { useWeather } from '../../stores/weatherStore.js'
 import { DRIVABLE_CAR_ENABLED, pickDrivableCar } from '../Vehicle/carSource.js'
 
+// Collision philosophy: tight per-mesh shapes matched to how each is used
 const WALK = /^road|Set_B_Tiles|Graffiti|Bus_Stop|_Line$/i
 const BUILDING = /Building/i
 const TRUNK = /^Palm/i
@@ -28,6 +29,7 @@ function classify(o) {
   return 'solid'
 }
 
+// Cap hull input so QuickHull stays cheap; dense meshes have many verts clustered at each corner
 const MAX_HULL_PTS = 256
 function hullPoints(geometry, world) {
   const pos = geometry.attributes.position
@@ -41,6 +43,7 @@ function hullPoints(geometry, world) {
   return new Float32Array(out)
 }
 
+// Exact surface for a static body
 function trimeshData(geometry, world) {
   const pos = geometry.attributes.position
   const verts = new Float32Array(pos.count * 3)
@@ -74,6 +77,7 @@ export default function City() {
 
     scene.updateMatrixWorld(true)
 
+    // The drivable car replaces one parked instance with its own dynamic body
     const carHome = DRIVABLE_CAR_ENABLED ? pickDrivableCar(scene) : null
     const carParts = carHome ? new Set(carHome.parts) : null
 
@@ -106,6 +110,7 @@ export default function City() {
         }
 
         if (kind === 'building') {
+          // Exact surface: walk onto the podium, walk under the cantilevers.
           trimeshes.push(trimeshData(o.geometry, world))
           continue
         }
@@ -115,6 +120,7 @@ export default function City() {
         wb.getCenter(center)
 
         if (kind !== 'solid') {
+          // pole: slim post | trunk: palm stem | round: fountain rim
           const r = kind === 'trunk' ? 0.4 : kind === 'round' ? Math.max(size.x, size.z) * 0.45 : 0.17
           poles.push({ pos: [center.x, center.y, center.z], args: [size.y / 2, r] })
           if (kind === 'round') {
@@ -123,6 +129,7 @@ export default function City() {
           continue
         }
 
+        // Too few verts or near-flat ⇒ a hull would be degenerate; a thin box is safe.
         const minExtent = Math.min(size.x, size.y, size.z)
         if (o.geometry.attributes.position.count < 12 || minExtent < 0.06) {
           boxes.push({
@@ -144,6 +151,7 @@ export default function City() {
     }
   }, [trimeshes, hulls, boxes, poles])
 
+  // Wet streets while it rains: roads/plazas swap to a glossy clone that catches the moon
   const storm = useWeather((s) => s.storm)
   const wetRoads = useMemo(() => {
     const swaps = []
@@ -166,6 +174,7 @@ export default function City() {
     for (const { mesh, dry, wet } of wetRoads) mesh.material = storm ? wet : dry
   }, [storm, wetRoads])
 
+  // While inside the Project Theatre the whole city is invisible — it's far beyond the fog anyway
   const inside = useTheatre((s) => s.phase === 'inside')
   useEffect(() => {
     scene.visible = !inside
@@ -178,6 +187,7 @@ export default function City() {
       <primitive object={scene} />
 
       <RigidBody type="fixed" colliders={false}>
+        {/* The city is flat: one ground slab, top exactly at street level */}
         <CuboidCollider
           args={[(maxX - minX) / 2 + 8, 1, (maxZ - minZ) / 2 + 8]}
           position={[(minX + maxX) / 2, meta.groundY - 1, (minZ + maxZ) / 2]}
@@ -194,6 +204,7 @@ export default function City() {
         {poles.map((c, i) => (
           <CylinderCollider key={`p${i}`} args={c.args} position={c.pos} />
         ))}
+        {/* World edge walls at the city rim */}
         <CuboidCollider args={[(maxX - minX) / 2 + 8, 8, 0.5]} position={[(minX + maxX) / 2, meta.groundY + 4, minZ - 0.5]} />
         <CuboidCollider args={[(maxX - minX) / 2 + 8, 8, 0.5]} position={[(minX + maxX) / 2, meta.groundY + 4, maxZ + 0.5]} />
         <CuboidCollider args={[0.5, 8, (maxZ - minZ) / 2 + 8]} position={[minX - 0.5, meta.groundY + 4, (minZ + maxZ) / 2]} />

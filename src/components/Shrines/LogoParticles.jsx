@@ -2,29 +2,18 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { suspend } from 'suspend-react'
 import * as THREE from 'three'
+import { QUALITY } from '../../utils/quality.js'
 import { playSfx, playStoppable } from '../../utils/sfx.js'
 
-// The Joveo mark as ~4200 additive glow particles, ported from the
-// joveo-3d reference: pixels of logo.png become particle targets carrying
-// the true brand colors. Game-specific behavior:
-//   entry  — particles erupt from the fountain water and assemble overhead
-//   hold   — press & hold (without dragging) absorbs the mark into a vortex orb
-//   release— detonates outward, then the field re-forms the logo on its own
-//   exit   — everything sinks back into the fountain
-const N = 4500
+// The Joveo mark as ~4200 additive glow particles
+const N = QUALITY.logoParticles
 const LOGO_WIDTH = 3.4 // 0.75× the previous 5.2
-// Height of the logo center above the fountain base. Kept low so the mark
-// stays framed when the camera pushes in close, and reads as a grounded,
-// prominent monument rather than something floating off the top of the screen.
+// Height of the logo center above the fountain base
 const LOGO_HOVER = 3.4
-// A dark radial scrim sits just behind the mark. Additive particles only glow
-// against darkness — without this the colors wash out into the lit night sky
-// (the reference page gets this for free from its near-black background).
+// A dark radial scrim sits just behind the mark
 const BACKDROP_R = LOGO_WIDTH * 0.8
 
-// Sample a logo image into particle targets + colors. Cached once per url by
-// suspend(). `mode` decides what counts as "ink": transparent-PNG logos key on
-// alpha, white-background JPEGs key on darkness (luma < lumaMax).
+// Sample a logo image into particle targets + colors
 async function sampleLogo(url, mode = 'alpha', shade = 0.5, sat = 1.35, gain = 1, lumaMax = 0.82) {
   const img = await new Promise((resolve, reject) => {
     const i = new Image()
@@ -58,9 +47,7 @@ async function sampleLogo(url, mode = 'alpha', shade = 0.5, sat = 1.35, gain = 1
     targets[i * 3] = (s[0] / S - 0.5) * LOGO_WIDTH + (Math.random() - 0.5) * jitterAmt
     targets[i * 3 + 1] = -(s[1] / S - 0.5) * LOGO_WIDTH + (Math.random() - 0.5) * jitterAmt
     targets[i * 3 + 2] = (Math.random() - 0.5) * 0.6
-    // Push each pixel away from its own luma to deepen + saturate the brand
-    // colors, then scale by shade/gain. Against the dark scrim this reads vivid
-    // and jewel-like instead of the pale wash additive blending gives on its own.
+    // Push each pixel away from its own luma to deepen + saturate the brand colors
     const luma = 0.299 * s[2] + 0.587 * s[3] + 0.114 * s[4]
     colors[i * 3] = Math.max(0, Math.min(1, (luma + (s[2] - luma) * sat) * shade * gain))
     colors[i * 3 + 1] = Math.max(0, Math.min(1, (luma + (s[3] - luma) * sat) * shade * gain))
@@ -128,7 +115,7 @@ export default function LogoParticles({ fountain, logo, closing, onClosed }) {
           p.y += cos(uTime * 0.45 + aRand * 24.0) * 0.035;
           p.z += sin(p.x * 0.7 + uTime * 0.5) * cos(p.y * 0.6 + uTime * 0.4) * 0.10;
           vec4 mv = modelViewMatrix * vec4(p, 1.0);
-          // Clamp sprite size: up close -mv.z → 0 makes each point balloon into
+          // Clamp sprite size so close-up points never balloon
           // a huge additive splat, and thousands of those is a fill-rate wall.
           gl_PointSize = min(uSize * (0.6 + aRand) * (28.0 / -mv.z), 18.0);
           gl_Position = projectionMatrix * mv;
@@ -145,9 +132,7 @@ export default function LogoParticles({ fountain, logo, closing, onClosed }) {
       `,
     })
 
-    // Dark radial scrim — a near-opaque indigo-black disc that gives the
-    // additive mark a stage to glow against. Fades in/out via uOpacity so it
-    // grows in with the logo and isn't a hard dark plate in the sky.
+    // Dark radial scrim — a near-opaque indigo-black disc that gives the additive mark a stage
     const backdropMat = new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
@@ -174,8 +159,7 @@ export default function LogoParticles({ fountain, logo, closing, onClosed }) {
     return { geometry, material, backdropMat, vel: new Float32Array(N * 3), rand, fountainPool }
   }, [colors, fountain])
 
-  // Hold-to-absorb / release-to-blast — without stealing camera drags:
-  // a press that moves more than a few pixels is a camera move, not a hold.
+  // Hold-to-absorb / release-to-blast — without stealing camera drags: a press that moves more
   useEffect(() => {
     const s = stateRef.current
     let downX = 0
@@ -209,8 +193,7 @@ export default function LogoParticles({ fountain, logo, closing, onClosed }) {
         clearTimeout(holdTimer)
       }
     }
-    // Fling every particle outward from (s.ax, s.ay, s.az) in the mark's local
-    // space, then the frame loop reels them back into the logo.
+    // Fling every particle outward from (s.ax, s.ay, s.az) in the mark's local space
     const detonate = () => {
       s.holding = false
       // cut the absorb charge so the blast lands clean on the same frame
@@ -329,8 +312,7 @@ export default function LogoParticles({ fountain, logo, closing, onClosed }) {
       for (let i = 0; i < N * 3; i++) arr[i] += (fountainPool[i] - arr[i]) * 0.07
       if (t - s.closedAt > 1.1) onClosed()
     } else {
-      // emergence + idle: particles leave the fountain in waves (stagger by
-      // aRand), then keep the reference's soft asymptotic pull to the mark
+      // emergence + idle: particles leave the fountain in waves (stagger by aRand)
       const age = t - s.openedAt
       for (let i = 0; i < N; i++) {
         const ix = i * 3

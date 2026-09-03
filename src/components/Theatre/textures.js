@@ -1,55 +1,53 @@
 import * as THREE from 'three'
 
-// Procedural canvas textures for the Project Theatre — drawn once, cached. Keeps
-// us off any web-font fetch and gives full control over the neon glow so the
-// scene's bloom pass lights it up.
+// Procedural canvas textures for the Project Theatre — drawn once, cached
 
-// Neon "PROJECT THEATRE" laid flat on the floor. Transparent background +
-// additive blending on the mesh, so only the glowing glyphs show over the dark
-// floor. Two-line, wide aspect so it reads when foreshortened on the ground.
-export function makeFloorTextTexture() {
-  const w = 2048
-  const h = 768
-  const c = document.createElement('canvas')
-  c.width = w
-  c.height = h
-  const g = c.getContext('2d')
+// Neon "PROJECT THEATRE" laid flat on the floor, in Orbitron to match the about billboard
+const FLOOR_TEXT_W = 2048
+const FLOOR_TEXT_H = 768
+
+export function drawFloorText(canvas) {
+  const w = canvas.width
+  const h = canvas.height
+  const g = canvas.getContext('2d')
   g.clearRect(0, 0, w, h)
   g.textAlign = 'center'
   g.textBaseline = 'middle'
 
-  const draw = (text, y, size, grad) => {
-    g.font = `800 ${size}px 'Space Grotesk', 'Orbitron', system-ui, sans-serif`
-    // wide outer halo
-    g.shadowColor = 'rgba(123,108,255,0.95)'
-    g.shadowBlur = 70
+  const grad = g.createLinearGradient(w * 0.2, 0, w * 0.8, 0)
+  grad.addColorStop(0, '#8f260b')
+  grad.addColorStop(0.5, '#ff4d0a')
+  grad.addColorStop(1, '#ffa03d')
+
+  const draw = (text, y, size) => {
+    g.font = `800 ${size}px 'Orbitron', system-ui, sans-serif`
+    g.shadowColor = 'rgba(255,77,10,0.8)'
+    g.shadowBlur = 20
     g.fillStyle = grad
     g.fillText(text, w / 2, y)
-    g.fillText(text, w / 2, y)
-    // tight bright core
-    g.shadowColor = 'rgba(180,220,255,0.9)'
-    g.shadowBlur = 18
-    g.fillStyle = 'rgba(245,250,255,0.98)'
+    g.shadowColor = 'rgba(255,201,174,0.75)'
+    g.shadowBlur = 5
+    g.fillStyle = 'rgba(245,250,255,0.97)'
     g.fillText(text, w / 2, y)
   }
 
-  const grad = g.createLinearGradient(w * 0.18, 0, w * 0.82, 0)
-  grad.addColorStop(0, '#7b6cff')
-  grad.addColorStop(0.5, '#5ad1ff')
-  grad.addColorStop(1, '#ff7ad9')
+  draw('PROJECT', h * 0.37, 250)
+  draw('THEATRE', h * 0.74, 250)
+}
 
-  draw('PROJECT', h * 0.36, 300, grad)
-  draw('THEATRE', h * 0.74, 300, grad)
-
+export function makeFloorTextTexture() {
+  const c = document.createElement('canvas')
+  c.width = FLOOR_TEXT_W
+  c.height = FLOOR_TEXT_H
+  drawFloorText(c)
   const tex = new THREE.CanvasTexture(c)
   tex.anisotropy = 8
   tex.colorSpace = THREE.SRGBColorSpace
   return tex
 }
 
-// A single rectangular placeholder "image" for a project frame: dark gradient
-// keyed off the project accent, a faint grid, and centred labels.
-export function makePlaceholderTexture(label, accent) {
+// Placeholder image for a project frame, keyed off its accent colour
+export function makePlaceholderTexture(label, accent, sub = '') {
   const w = 1024
   const h = 640
   const c = document.createElement('canvas')
@@ -59,8 +57,8 @@ export function makePlaceholderTexture(label, accent) {
 
   // base gradient
   const bg = g.createLinearGradient(0, 0, w, h)
-  bg.addColorStop(0, '#15102e')
-  bg.addColorStop(1, '#0a0818')
+  bg.addColorStop(0, '#2f1912')
+  bg.addColorStop(1, '#0a0806')
   g.fillStyle = bg
   g.fillRect(0, 0, w, h)
 
@@ -91,12 +89,31 @@ export function makePlaceholderTexture(label, accent) {
   g.font = `800 92px 'Space Grotesk', system-ui, sans-serif`
   g.fillText(label, w / 2, h / 2 - 26)
   g.shadowBlur = 0
-  g.fillStyle = hexA('#ffffff', 0.6)
-  g.font = `600 30px 'Inter', system-ui, sans-serif`
-  g.fillText('IMAGE  PLACEHOLDER', w / 2, h / 2 + 62)
+  if (sub) {
+    g.fillStyle = hexA('#ffffff', 0.55)
+    g.font = `600 28px 'Inter', system-ui, sans-serif`
+    g.fillText(sub, w / 2, h / 2 + 62)
+  }
 
   const tex = new THREE.CanvasTexture(c)
   tex.anisotropy = 8
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
+// Generic radial gradient texture (canvas)
+export function makeRadialTexture(inner = '#ffffff', outer = '#000000', innerFrac = 0) {
+  const s = 512
+  const c = document.createElement('canvas')
+  c.width = s
+  c.height = s
+  const g = c.getContext('2d')
+  const grad = g.createRadialGradient(s / 2, s / 2, (s / 2) * innerFrac, s / 2, s / 2, s / 2)
+  grad.addColorStop(0, inner)
+  grad.addColorStop(1, outer)
+  g.fillStyle = grad
+  g.fillRect(0, 0, s, s)
+  const tex = new THREE.CanvasTexture(c)
   tex.colorSpace = THREE.SRGBColorSpace
   return tex
 }

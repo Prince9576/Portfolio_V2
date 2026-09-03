@@ -18,15 +18,13 @@ const HINT_RADIUS = 4.5
 const EXIT_RADIUS = 6.5
 
 // Cosmic palette — indigo singularity with a hot lilac event horizon.
-const PORTAL_GLOW = '#7b6cff'
-const PORTAL_SPARK = '#b9a8ff'
+const PORTAL_GLOW = '#ff4d0a'
+const PORTAL_SPARK = '#ffc9ae'
 
-const ORB_LIFT = 1.0 // float the orb to chest height above its ground point
-const ORB_SIZE = 3.2 // on-screen footprint of the raymarched orb (world metres)
+const ORB_LIFT = 1.0 // float the orb to chest height above
+const ORB_SIZE = 3.2 // on-screen footprint of the raymarched orb
 
-// A single black-hole orb, reused for the ground and roof portals. The lensed
-// accretion disk is a raymarched impostor (BlackHoleOrb); the sparkles + light
-// stay for ambient cohesion with the rest of the scene.
+// A single black-hole orb, reused for the ground and roof portals
 function Vortex({ at }) {
   const orb = { x: at.x, y: at.y + ORB_LIFT, z: at.z }
   return (

@@ -8,17 +8,22 @@ import { getPlayerBody } from '../../stores/playerRef.js'
 import { initSfx, playSfx, playStep } from '../../utils/sfx.js'
 import { drinkTune, useTransform } from '../../stores/transformStore.js'
 
+// Run clip travels 1.717m over 0.833s -> sync timeScale to actual velocity so feet never slide
 const RUN_CLIP_SPEED = 2.06
 
+// Audio trigger points measured from the rig itself (tools/extract_anim_timings.py): toe ground
 const FOOTFALL_PHASES = timings.run.footfallPhases
 
+// True when the loop phase passed a trigger between two frames (wrap-aware)
 const crossed = (trigger, from, to) =>
   from <= to ? trigger > from && trigger <= to : trigger > from || trigger <= to
 
 const ONE_SHOT = { Jump: 1.25 }
 
+// Fade-in time per target clip: relaxed into idle.
 const FADE = { Jump: 0.12, Run: 0.22, Idle: 0.3 }
 
+// Overture pacing
 const DRINK_SECONDS = 4.5
 const DRUNK_DWELL_MS = 2200
 
@@ -44,10 +49,18 @@ export default function HumanRig() {
     scene.traverse((o) => {
       if (o.isMesh) {
         o.castShadow = true
+        // Skinned bounds don't follow the rig; never cull the player
         o.frustumCulled = false
       }
     })
+    // Headless drink-alignment tuning reads bone world positions off this.
+    if (import.meta.env.DEV) window.__charScene = scene
   }, [scene])
+
+  // DEV: let the headless tuner freeze the Drink clip on a chosen pose.
+  useEffect(() => {
+    if (import.meta.env.DEV) { window.__charMixer = mixer; window.__charActions = actions }
+  }, [mixer, actions])
 
   useEffect(() => {
     initializeAnimationSet({
@@ -61,9 +74,7 @@ export default function HumanRig() {
     })
   }, [initializeAnimationSet])
 
-  // Locomotion FSM: crossfade on every curAnimation change — but only while
-  // sober & on foot. During drinking/drunk the sequence effect below owns the
-  // rig (control is locked), so don't let an idle/run state fight the one-shots.
+  // Locomotion FSM: crossfade on every curAnimation change — but only while sober & on foot
   useEffect(() => {
     if (phase !== 'human') return
     const name = curAnimation ?? 'Idle'
@@ -89,9 +100,7 @@ export default function HumanRig() {
     if (import.meta.env.DEV) window.__anim = name
   }, [curAnimation, actions, phase])
 
-  // The transformation overture: a paced Drink, then a brief drunk sway, then
-  // the monster takes over (HumanRig unmounts). Drink advances on the gulp
-  // (clip 'finished') with a timeout backstop; drunk just dwells briefly.
+  // The transformation overture: a paced Drink, then a brief drunk sway
   useEffect(() => {
     if (phase !== 'drinking' && phase !== 'drunk') return
     const isDrink = phase === 'drinking'
@@ -99,7 +108,7 @@ export default function HumanRig() {
     const name = isDrink ? 'Drink' : 'Drunk'
     const action = actions[name]
 
-    // ?drinktune: loop Drink forever so the mug can be aligned by eye.
+    // drinkTune.enabled loops Drink forever, for aligning the mug by eye.
     const tuning = drinkTune.enabled && isDrink
 
     let timer
@@ -141,11 +150,7 @@ export default function HumanRig() {
     const cur = curRef.current
     const body = getPlayerBody()
 
-    // Heal a stranded bind/T pose: drei's useAnimations cleanup can stopAllAction
-    // on (re)mount and the FSM's same-name guard then won't replay it. Cover Idle
-    // (spawn / standing) AND Run — the latter is the "revert while moving comes
-    // back T-posed" bug, since reverting from the monster remounts this rig
-    // mid-stride with Run as the intended (but stopped) clip.
+    // Heal a stranded bind/T pose: drei's useAnimations cleanup can stopAllAction on (re)mount
     if (cur === 'Run' && actions.Run && !actions.Run.isRunning()) {
       actions.Run.reset().fadeIn(0.2).play()
     } else if ((cur === null || cur === 'Idle') && actions.Idle && !actions.Idle.isRunning()) {
@@ -178,8 +183,7 @@ export default function HumanRig() {
     }
   })
 
-  // Model root sits at capsule center; drop it past the capsule bottom plus the
-  // 0.25 float gap so feet touch the actual ground.
+  // Model root sits at capsule center; drop it past the capsule bottom plus the 0.25 float gap
   return (
     <group ref={group} position={[0, -1.13, 0]}>
       <primitive object={scene} />

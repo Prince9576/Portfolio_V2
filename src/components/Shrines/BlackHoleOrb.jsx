@@ -2,9 +2,11 @@ import { useMemo, useRef } from 'react'
 import { Billboard } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import { QUALITY } from '../../utils/quality.js'
 
-// Raymarched black hole on camera-facing impostor for performance
-// Virtual camera orbits to track player angle; virtual rays are transparent outside disk
+// A gravitationally-lensed accretion-disk black hole, ported from the WebGPU/TSL
+// reference shader to plain GLSL so it runs on our existing WebGL canvas.
+// Painted on a small camera-facing quad, so the shader only runs over the orb
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -23,8 +25,8 @@ const fragmentShader = /* glsl */ `
   uniform vec3  uCamDir;   // world-space dir from orb -> camera (tilted, normalized)
   uniform vec3  uGlow;     // tint for the lensed disk (lets us keep the purple identity)
 
-  // Tunable parameters (ported from reference)
-  #define STEPS            32      // raymarch iterations
+  // ---- tunables (ported from the reference config) -------------------------
+  #define STEPS            ${QUALITY.orbSteps}      // raymarch iterations
   #define STEP_SIZE        1.0
   #define BH_MASS          0.4     // rs = mass * 2
   #define DISK_INNER       4.1
@@ -66,7 +68,7 @@ const fragmentShader = /* glsl */ `
                mix(mix(e, f2, u.x), mix(g, h, u.x), u.y), u.z);
   }
 
-  // Fractional Brownian motion (3 octaves for performance)
+  // 3-octave fbm (reference used 4; one octave dropped to claw back cost)
   float fbm(vec3 p, float lac, float per) {
     float v = 0.0;
     float amp = 0.5;
@@ -88,12 +90,14 @@ const fragmentShader = /* glsl */ `
   vec4 accretionDiskColor(float hitR, float hitAngle, vec3 rayDir) {
     float normR = clamp((hitR - DISK_INNER) / (DISK_OUTER - DISK_INNER), 0.0, 1.0);
 
+    // blackbody temperature gradient
     float peakTempK = DISK_TEMP * 1000.0;
     float outerTempK = 1500.0;
     float tempFalloff = pow(DISK_INNER / hitR, TEMP_FALLOFF);
     float tempK = mix(outerTempK, peakTempK, tempFalloff);
     vec3 diskColor = blackbodyColor(tempK);
 
+    // doppler beaming
     float rotationSign = sign(DISK_ROT_SPEED);
     vec3 velocityDir = vec3(-sin(hitAngle) * rotationSign, 0.0, cos(hitAngle) * rotationSign);
     float velocityMag = 1.0 / sqrt(hitR / DISK_INNER);
@@ -103,10 +107,11 @@ const fragmentShader = /* glsl */ `
     float dopplerBoost = pow(dopplerFactor, 3.0 * DOPPLER_STRENGTH);
     diskColor *= clamp(dopplerBoost, 0.1, 5.0);
 
+    // edge falloff
     float edge = smoothstep(0.0, EDGE_IN, normR) *
                  smoothstep(1.0, 1.0 - EDGE_OUT, normR);
 
-    // Continuous Keplerian rotation
+    // turbulence — continuous keplerian rotation (single fbm, no cyclic blend)
     float keplerPhase = uTime * DISK_ROT_SPEED / pow(hitR, 1.5);
     float ang = hitAngle + keplerPhase;
     vec3 noiseCoord = vec3(
@@ -116,7 +121,8 @@ const fragmentShader = /* glsl */ `
     );
     float turbulence = fbm(noiseCoord, TURB_LAC, TURB_PERS);
     float ringOpacity = pow(clamp(turbulence, 0.0, 1.0), TURB_SHARP);
-    // Soft glow floor for visibility at distance
+    // soft floor so the whole annulus stays visible at a distance
+    // spottable from a distance, with the bright turbulent filaments on top.
     ringOpacity = mix(DISK_FILL, 1.0, ringOpacity);
 
     float opacity = ringOpacity * edge;
@@ -125,9 +131,9 @@ const fragmentShader = /* glsl */ `
   }
 
   void main() {
-    vec2 screenPos = (vUv - 0.5) * 2.0;
+    vec2 screenPos = (vUv - 0.5) * 2.0; // square quad -> aspect 1
 
-    // Virtual camera orbiting the black hole
+    // virtual camera orbiting the black hole along the real view direction
     vec3 camPos = uCamDir * CAM_DIST;
     vec3 camForward = normalize(-camPos);
     vec3 worldUp = vec3(0.0, 1.0, 0.0);
@@ -155,7 +161,7 @@ const fragmentShader = /* glsl */ `
       prevPos = rayPos;
       rayPos += rayDir * STEP_SIZE;
 
-      // Check disk-plane intersection
+      // disk-plane crossing
       if (prevPos.y * rayPos.y < 0.0 && alpha < 0.99) {
         float t = -prevPos.y / (rayPos.y - prevPos.y);
         vec3 hitPos = mix(prevPos, rayPos, t);
@@ -170,13 +176,14 @@ const fragmentShader = /* glsl */ `
       }
     }
 
-    // Captured rays create void; escaped rays are transparent
+    // captured rays -> opaque void (occludes the world behind);
+    // escaped rays -> transparent (world shows through).
     float outAlpha = captured > 0.5 ? 1.0 : alpha;
     gl_FragColor = vec4(color, outAlpha); // premultiplied; linear (composer tone-maps)
   }
 `
 
-// Minimum elevation bias to prevent edge-on disk orientation
+// Reusable bias vector — keeps a gentle top-down tilt so the disk never goes fully edge-on
 const MIN_ELEVATION = 0.22
 
 export default function BlackHoleOrb({ worldPos, size = 3, glow = '#9a86ff' }) {
@@ -200,7 +207,7 @@ export default function BlackHoleOrb({ worldPos, size = 3, glow = '#9a86ff' }) {
     const u = matRef.current?.uniforms
     if (!u) return
     u.uTime.value = state.clock.elapsedTime
-    // Direction from orb to camera with elevation floor for tilt
+    // direction from orb to camera, with a floor on elevation for a nice tilt
     dir.copy(state.camera.position).sub(orb)
     dir.y = Math.max(dir.y, dir.length() * MIN_ELEVATION)
     dir.normalize()

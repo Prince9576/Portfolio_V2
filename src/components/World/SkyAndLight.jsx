@@ -5,16 +5,14 @@ import * as THREE from 'three'
 import { getPlayerBody } from '../../stores/playerRef.js'
 import { isInside } from '../../stores/theatreStore.js'
 import { stormLevel, useWeather } from '../../stores/weatherStore.js'
+import { QUALITY } from '../../utils/quality.js'
 import { playSfx, startLoop, stopLoop } from '../../utils/sfx.js'
 import GradientSky from './GradientSky.jsx'
 
-// The HDRI is a moonlit night (Kloppenheim 02): full moon, starfield, dark
-// horizon. Everything here plays into that — cool moonlight, deep blue-green
-// fog that swallows the streets before the city edge.
+// The HDRI is a moonlit night (Kloppenheim 02): full moon, starfield, dark horizon
 export const FOG_COLOR = '#141f26'
 
-// Moonlight from high in the east, long soft shadows. Exported so the visible
-// moon disc (GradientSky) can sit in the same direction the light comes from.
+// Moonlight from high in the east, long soft shadows
 export const MOON_OFFSET = new THREE.Vector3(14, 18, 9)
 
 const CLEAR = {
@@ -30,9 +28,8 @@ const STORM = {
   fogFar: 72,
 }
 
-// Inside the Project Theatre: a dense, dark purple/blue fog that swallows the
-// far walls and hands lighting over to the room's own neon lights.
-const THEATRE_FOG = new THREE.Color('#0e0a26')
+// Inside the Project Theatre: a dense, dark warm fog that swallows the far walls and hands
+const THEATRE_FOG = new THREE.Color('#140c08')
 const THEATRE_FOG_NEAR = 5
 const THEATRE_FOG_FAR = 42
 
@@ -65,8 +62,7 @@ export default function SkyAndLight() {
     const light = lightRef.current
     if (!light) return
 
-    // Inside the theatre, override the sky/fog: dark purple fog, no moonlight or
-    // env (the room is self-lit). The next frame after exit restores everything.
+    // Inside the theatre, override the sky/fog: dark purple fog
     if (isInside()) {
       if (scene.fog) {
         scene.fog.color.copy(THEATRE_FOG)
@@ -156,7 +152,7 @@ export default function SkyAndLight() {
         color="#a9c0ec"
         intensity={1.35}
         castShadow
-        shadow-mapSize={[1024, 1024]}
+        shadow-mapSize={[QUALITY.shadowMap, QUALITY.shadowMap]}
         shadow-camera-near={2}
         shadow-camera-far={60}
         shadow-camera-left={-26}

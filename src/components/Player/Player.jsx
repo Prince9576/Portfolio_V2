@@ -10,11 +10,13 @@ import CharacterModel from './CharacterModel.jsx'
 
 const SPAWN = [meta.spawn.x, meta.spawnGroundY + 2, meta.spawn.z]
 const ZERO = { x: 0, y: 0, z: 0 }
+// Reused each frame so the pin allocates nothing
 const _q = new THREE.Quaternion()
 const _e = new THREE.Euler()
 
 export default function Player() {
   const driving = useVehicle((s) => s.phase === 'driving')
+  // Freeze input while mid-drink so the transformation plays out in place
   const sipping = useTransform((s) => s.phase === 'drinking' || s.phase === 'drunk')
 
   useEffect(() => {
@@ -31,6 +33,7 @@ export default function Player() {
     const body = getPlayerBody()
     if (!body) return
 
+    // While sipping, ecctrl bails out early (disableControl) and stops holding the capsule up
     const phase = useTransform.getState().phase
     if (phase === 'drinking' || phase === 'drunk') {
       body.setTranslation({ x: drinkPose.x, y: drinkPose.y, z: drinkPose.z }, true)
@@ -42,6 +45,7 @@ export default function Player() {
     }
 
     if (import.meta.env.DEV) window.__playerPos = body.translation()
+    // Safety net: teleport back to spawn if the player ever leaves the world
     if (body.translation().y < meta.surface.min - 10) {
       body.setTranslation({ x: SPAWN[0], y: SPAWN[1], z: SPAWN[2] }, true)
       body.setLinvel({ x: 0, y: 0, z: 0 }, true)
@@ -52,6 +56,7 @@ export default function Player() {
     <Ecctrl
       ref={playerRef}
       animated
+      // While driving, hand the camera + input to the car
       disableControl={driving || sipping}
       disableFollowCam={driving}
       position={SPAWN}
@@ -67,6 +72,7 @@ export default function Player() {
       camMinDis={-1.4}
       camInitDir={{ x: -0.12, y: meta.spawn.face }}
       characterInitDir={meta.spawn.face}
+      // Clamp the upward tilt so looking at the sky can't swing the camera arm below the ground
       camLowLimit={-0.6}
       camCollision={false}
       camTargetPos={{ x: 0, y: 0.6, z: 0 }}

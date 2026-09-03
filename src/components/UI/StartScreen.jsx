@@ -1,27 +1,49 @@
-import PrinceParticles from './PrinceParticles.jsx'
+import { useProgress } from '@react-three/drei'
 
-// Title card shown on load. The EXPLORE button's click is the user gesture
-// browsers require before audio can play, so this is where the wind ambience
-// kicks in. The particle portrait fills the whole page and is interactive
-// (hover dimples it, click detonates it) — only the button enters the site.
-export default function StartScreen({ onStart }) {
+// Loading screen
+export default function StartScreen({ onStart, stage = 'loading', leaving = false }) {
+  const { progress } = useProgress()
+  const ready = stage === 'ready'
+
+  // Downloading is the only stage with a real byte count, so it drives the bar up to 92%
+  const pct = stage === 'loading' ? Math.min(92, Number.isFinite(progress) ? progress : 0) : 100
+
   return (
-    <div className="start-screen">
-      <PrinceParticles />
-      <button className="start-btn" onClick={onStart}>EXPLORE</button>
+    <div className={`start-screen${leaving ? ' leaving' : ''}`}>
+      <div className="start-bar">
+        <span style={{ width: `${pct}%` }} />
+      </div>
+
+      {ready ? (
+        <button className="start-btn" onClick={onStart}>Explore</button>
+      ) : (
+        <p className="start-stage">
+          {stage === 'loading' ? 'Loading my portfolio…' : 'Warming up the city…'}
+        </p>
+      )}
+
       <style>{`
         .start-screen{position:fixed;inset:0;z-index:50;overflow:hidden;
-          background:radial-gradient(circle at 50% 42%, #1a0f3e 0%, #0a0620 55%, #05030f 100%);
-          font-family:'Orbitron',system-ui,sans-serif;animation:start-fade .6s ease}
-        .prince-portrait{position:fixed;inset:0;z-index:1}
-        .start-btn{position:fixed;left:50%;bottom:7vh;transform:translateX(-50%);z-index:3;
-          padding:1rem 3.2rem;font-family:inherit;font-weight:700;letter-spacing:.28em;font-size:1.1rem;
-          color:#eafaff;background:rgba(90,209,255,.08);border:1.5px solid #5ad1ff;border-radius:999px;cursor:pointer;
-          box-shadow:0 0 18px rgba(90,209,255,.5),inset 0 0 12px rgba(90,209,255,.15);transition:all .25s ease;
-          animation:start-pulse 2.4s ease-in-out infinite}
-        .start-btn:hover{background:rgba(90,209,255,.2);box-shadow:0 0 30px rgba(90,209,255,.9),inset 0 0 16px rgba(90,209,255,.3);transform:translateX(-50%) translateY(-1px)}
-        @keyframes start-pulse{0%,100%{box-shadow:0 0 16px rgba(90,209,255,.45),inset 0 0 12px rgba(90,209,255,.12)}50%{box-shadow:0 0 30px rgba(90,209,255,.85),inset 0 0 16px rgba(90,209,255,.28)}}
-        @keyframes start-fade{from{opacity:0}to{opacity:1}}
+          display:flex;flex-direction:column;align-items:center;justify-content:center;
+          background:var(--bg);opacity:1;transition:opacity .4s ease}
+        /* On EXPLORE this fades out over an already-running, already-framed world. */
+        .start-screen.leaving{opacity:0;pointer-events:none}
+
+        .start-bar{width:min(300px,64vw);height:2px;background:var(--surface-2);overflow:hidden}
+        .start-bar span{display:block;height:100%;background:var(--accent);
+          transition:width .9s ease}
+
+        /* One line, two states. Reserve the button's height so swapping the
+           label for the button doesn't shift the bar. */
+        .start-stage,.start-btn{margin-top:1.6rem;height:2.4rem;display:flex;align-items:center}
+        .start-stage{font:400 .8rem/1 'Space Grotesk',system-ui,sans-serif;
+          letter-spacing:.02em;color:var(--text-dim)}
+
+        .start-btn{padding:0 1.9rem;font:500 .8rem/1 'Space Grotesk',system-ui,sans-serif;
+          letter-spacing:.02em;color:var(--accent);background:transparent;
+          border:1px solid var(--accent);cursor:pointer;
+          transition:background .2s ease,color .2s ease}
+        .start-btn:hover{background:var(--accent);color:var(--bg)}
       `}</style>
     </div>
   )

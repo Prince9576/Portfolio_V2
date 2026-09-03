@@ -1,5 +1,4 @@
-// Content for the hero "About" neon billboard at spawn. Swap the placeholders
-// for the real portrait/resume/links and edit the copy — nothing else changes.
+// Content for the hero "About" neon billboard at spawn
 export const ABOUT = {
   name: 'Prince Kumar',
   portrait: '/textures/about/portrait.png', // drop your transparent headshot here
@@ -14,6 +13,6 @@ export const ABOUT = {
     github: '#', // e.g. https://github.com/yourhandle
     linkedin: '#', // e.g. https://linkedin.com/in/yourhandle
   },
-  // Neon theme (matches the world's mystic violet + cyan)
-  theme: { primary: '#8b5cff', accent: '#5ad1ff' },
+  // Neon theme — drives the billboard's frame glow and CRT scanline.
+  theme: { primary: '#ff4d0a', accent: '#8f260b' },
 }

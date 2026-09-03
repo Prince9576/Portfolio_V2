@@ -9,14 +9,13 @@ import SkillNode from './SkillNode.jsx'
 // Decode logos at app start so there's no pop-in when the deck mounts.
 SKILLS.forEach((s) => useTexture.preload(s.logo))
 
-// Two columns straddling the deck centre; rows march down z inside the fence
-// and clear of the roof portal (z=2). Group 1 (Frontend) fills the left column.
+// Two columns straddling the deck centre; rows march down z inside the fence and clear
 const COL_DX = 2.05
 const Z_TOP = -17.5
 const Z_BOT = -1
 const CELL_W = 3.7
 const CELL_D = 2.4
-const TILE_Y = ROOF_BOUNDS.top + 0.04 // sit on the walk surface, not the panels 1.5m below
+const TILE_Y = ROOF_BOUNDS.top + 0.04 // sit just above the solar-panel walk surface
 const FOCUS_RANGE = 3.4
 
 function buildLayout() {
@@ -64,8 +63,7 @@ export default function SkillDeck() {
   const { nodes, headers } = useMemo(buildLayout, [])
   const focusRef = useRef(-1)
 
-  // Single O(N) sqrt-free nearest-node scan; drives every node's focus (no
-  // React state in the hot path).
+  // Single O(N) sqrt-free nearest-node scan
   useFrame(() => {
     if (!onRoof) return
     const body = getPlayerBody()

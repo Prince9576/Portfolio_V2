@@ -4,10 +4,7 @@ import { useTransform } from '../../stores/transformStore.js'
 import HumanRig from './HumanRig.jsx'
 import OrcRig from './OrcRig.jsx'
 
-// One physics capsule, two skins. The human rig is always mounted (it carries
-// the drink/drunk overture too); the monster rig only mounts after a successful
-// transform — and being mounted is what triggers its lazy GLB fetch, so the orc
-// costs nothing until someone actually drinks.
+// One physics capsule, two skins
 export default function CharacterModel() {
   const driving = useVehicle((s) => s.phase === 'driving')
   const monster = useTransform((s) => s.phase === 'monster')

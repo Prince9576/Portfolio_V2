@@ -4,7 +4,7 @@ import { COMPANIES } from '../../content/companies.js'
 import { landmarks } from '../../stores/shrineStore.js'
 import Shrine from './Shrine.jsx'
 
-// Deduplicate fountains and assign one per company
+// Assign one fountain per company
 export default function Shrines() {
   const pairs = useMemo(() => {
     const seen = new Set()

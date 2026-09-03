@@ -5,14 +5,16 @@ import * as THREE from 'three'
 import { getPlayerBody } from '../../stores/playerRef.js'
 import { doorTune, enterTheatre, useTheatre } from '../../stores/theatreStore.js'
 
+// Marks the building's existing entrance as enterable — no fabricated door, just a loud
 const HINT_RADIUS = 5
 const EXIT_RADIUS = 6.5
 
-const NEON = '#9d6bff'
-const NEON_BRIGHT = '#c9b3ff'
-const NEON_SPARK = '#d9c9ff'
+const NEON = '#ff4d0a'
+const NEON_BRIGHT = '#ffc9ae'
+const NEON_SPARK = '#ffddc4'
 const RING_COUNT = 3
 
+// Soft-edged aura that washes over the door (radial alpha, gently breathing).
 function makeGlowMaterial() {
   return new THREE.ShaderMaterial({
     transparent: true,
@@ -43,8 +45,10 @@ export default function TheatreDoor() {
   const lightRef = useRef()
   const ringsRef = useRef()
 
+  // Baked placement from doorTune.
   const yaw = (doorTune.yawDeg * Math.PI) / 180
   const pos = [doorTune.x + Math.sin(yaw) * 0.06, doorTune.y, doorTune.z + Math.cos(yaw) * 0.06]
+  // Trigger sits triggerDist out in front of the door, along its facing.
   const trigX = doorTune.x + Math.sin(yaw) * doorTune.triggerDist
   const trigZ = doorTune.z + Math.cos(yaw) * doorTune.triggerDist
 
@@ -53,6 +57,7 @@ export default function TheatreDoor() {
     glowMat.uniforms.uTime.value = t
     if (lightRef.current) lightRef.current.intensity = 3.4 + Math.sin(t * 2.4) * 1.4
 
+    // Expanding pulse rings on the ground — staggered ripples that read as "go here".
     if (ringsRef.current) {
       const kids = ringsRef.current.children
       for (let i = 0; i < kids.length; i++) {

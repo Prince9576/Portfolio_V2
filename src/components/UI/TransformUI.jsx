@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { DRUNK_SECONDS, useTransform } from '../../stores/transformStore.js'
+import ActionKey from './ActionKey.jsx'
 
-// DOM overlay for the beer easter egg: the "have a sip" prompt, the morning-after
-// message, the warm drunk vignette, and the bottom-right "under the influence"
-// countdown ring that auto-sobers you at zero.
+// DOM overlay for the beer easter egg: the "have a sip" prompt, the morning-after message
 const R = 26
 const C = 2 * Math.PI * R
 
@@ -17,9 +16,7 @@ export default function TransformUI() {
   const showSip = near && phase === 'human'
   const monster = phase === 'monster'
 
-  // Drive the countdown off a wall clock (rAF) and sober up at zero. All state
-  // writes live in callbacks (rAF / timeout), never synchronously in the effect
-  // body, so re-entering monster never cascades renders.
+  // Drive the countdown off a wall clock (rAF) and sober up at zero
   useEffect(() => {
     if (phase !== 'monster') return
     const start = performance.now()
@@ -54,7 +51,7 @@ export default function TransformUI() {
       <div className={`beer-hint ${showSip ? 'show' : ''}`}>
         <span className="beer-ico">🍺</span>
         <span>
-          It&apos;s the weekend — <span className="key">Enter</span> to have a sip
+          It&apos;s the weekend — <ActionKey /> to have a sip
         </span>
       </div>
 

@@ -1,5 +1,7 @@
 import { Sparkles } from '@react-three/drei'
+import { useThree } from '@react-three/fiber'
 import meta from '../content/worldMeta.json'
+import { QUALITY } from '../utils/quality.js'
 import Player from './Player/Player.jsx'
 import AboutBillboard from './About/AboutBillboard.jsx'
 import SkillDeck from './Skills/SkillDeck.jsx'
@@ -7,7 +9,6 @@ import BlackHolePortal from './Shrines/BlackHolePortal.jsx'
 import Shrines from './Shrines/Shrines.jsx'
 import BeerMug from './EasterEgg/BeerMug.jsx'
 import TransformFx from './EasterEgg/TransformFx.jsx'
-import DrinkTuner from './EasterEgg/DrinkTuner.jsx'
 import DrivableCar from './Vehicle/DrivableCar.jsx'
 import TheatreDoor from './Theatre/TheatreDoor.jsx'
 import TheatreRoom from './Theatre/TheatreRoom.jsx'
@@ -16,27 +17,33 @@ import City from './World/City.jsx'
 import Rain from './World/Rain.jsx'
 import SkyAndLight from './World/SkyAndLight.jsx'
 
-const FLAGS = new URLSearchParams(window.location.search)
+// DEV: expose the r3f store so the headless drink-alignment harness can frame custom verification
+function DevThreeHook() {
+  const three = useThree()
+  window.__three = three
+  return null
+}
 
 export default function Experience() {
   return (
     <>
+      {import.meta.env.DEV && <DevThreeHook />}
       <SkyAndLight />
       <City />
-      {!FLAGS.has('noshrine') && <Shrines />}
-      {!FLAGS.has('notheatre') && <TheatreDoor />}
-      {!FLAGS.has('notheatre') && <TheatreRoom />}
-      {!FLAGS.has('noportal') && <BlackHolePortal />}
-      {!FLAGS.has('noskills') && <SkillDeck />}
-      {!FLAGS.has('noabout') && <AboutBillboard />}
-      {!FLAGS.has('nocar') && <DrivableCar />}
-      {!FLAGS.has('noegg') && <BeerMug />}
-      {!FLAGS.has('noegg') && <TransformFx />}
-      {FLAGS.has('drinktune') && <DrinkTuner />}
-      {!FLAGS.has('norain') && <Rain />}
+      <Shrines />
+      <TheatreDoor />
+      <TheatreRoom />
+      <BlackHolePortal />
+      <SkillDeck />
+      <AboutBillboard />
+      <DrivableCar />
+      <BeerMug />
+      <TransformFx />
+      <Rain />
       <Player />
+      {/* Night air: drifting motes at the spawn plaza, a sparse layer city-wide */}
       <Sparkles
-        count={80}
+        count={QUALITY.sparklesNear}
         scale={[16, 4, 16]}
         position={[meta.spawn.x, meta.spawnGroundY + 2, meta.spawn.z]}
         size={3}
@@ -45,7 +52,7 @@ export default function Experience() {
         color="#ffce6b"
       />
       <Sparkles
-        count={160}
+        count={QUALITY.sparklesFar}
         scale={[110, 6, 130]}
         position={[0, meta.groundY + 3, 0]}
         size={2.2}
@@ -53,7 +60,7 @@ export default function Experience() {
         opacity={0.45}
         color="#ffd98c"
       />
-      {!FLAGS.has('nofx') && <Effects />}
+      <Effects />
     </>
   )
 }

@@ -7,12 +7,14 @@ import { getPhase, useShrine } from '../../stores/shrineStore.js'
 import { playSfx } from '../../utils/sfx.js'
 import LogoParticles from './LogoParticles.jsx'
 
+// A work-experience shrine bound to one fountain + one company
 const HINT_RADIUS = 5.5
 const CLOSE_RADIUS = 9.5
 
-const MYTHIC_DEEP = '#5a2be0'
-const MYTHIC_GLOW = '#8b5cff'
-const MYTHIC_SPARK = '#c4a2ff'
+// Beacon palette — deep burnt orange welling up out of the ground
+const MYTHIC_DEEP = '#8f260b'
+const MYTHIC_GLOW = '#ff4d0a'
+const MYTHIC_SPARK = '#ffc9ae'
 
 function makeBeamMaterial() {
   return new THREE.ShaderMaterial({
@@ -101,7 +103,7 @@ export default function Shrine({ company, fountain }) {
   const groundMat = useMemo(() => makeGroundMaterial(), [])
   const glowRef = useRef()
 
-  // Proximity state machine
+  // Proximity state machine (with hysteresis so it never flickers)
   useFrame((state) => {
     beamMat.uniforms.uTime.value = state.clock.elapsedTime
     groundMat.uniforms.uTime.value = state.clock.elapsedTime
@@ -118,7 +120,7 @@ export default function Shrine({ company, fountain }) {
     else if (cur === 'open' && d > CLOSE_RADIUS) setPhase(id, 'closing')
   })
 
-  // Enter to open, Esc to close (both shrines listen, only active shrine responds)
+  // Enter opens this shrine while its hint is up; Esc closes it
   useEffect(() => {
     const onKey = (e) => {
       const cur = getPhase(id)
@@ -141,7 +143,7 @@ export default function Shrine({ company, fountain }) {
 
   return (
     <group>
-      {/* Mystical beacon */}
+      {/* --- the mystical beacon, always alive --- */}
       <mesh
         position={[fountain.x, baseY + 0.14, fountain.z]}
         rotation-x={-Math.PI / 2}
@@ -180,7 +182,7 @@ export default function Shrine({ company, fountain }) {
         decay={2.1}
       />
 
-      {/* Company mark (summoned on Enter) */}
+      {/* --- the mark itself, summoned on Enter --- */}
       {(phase === 'open' || phase === 'closing') && (
         <Suspense fallback={null}>
           <LogoParticles

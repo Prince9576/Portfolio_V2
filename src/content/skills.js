@@ -1,10 +1,4 @@
-// Tech skills shown as a holographic panel grid on the rooftop solar deck.
-// Logos are devicon/simple-icons PNGs (MIT) rasterized into
-// public/textures/skills/. Skills are grouped; the grid lays the first group
-// (Frontend) down the left column and the rest down the right column.
-//   color — brand color driving the cell border + light column glow.
-//   group — category; also decides the proficiency label shown:
-//           Frontend = "Expert", everything else = "Intermediate".
+// Tech skills shown as a holographic panel grid on the rooftop solar deck
 export const GROUP_LEVEL = { Frontend: 'Expert' }
 export const levelFor = (group) => GROUP_LEVEL[group] ?? 'Intermediate'
 

@@ -5,16 +5,7 @@ import * as THREE from 'three'
 import { stormLevel } from '../../stores/weatherStore.js'
 import { FOG_COLOR, MOON_OFFSET } from './SkyAndLight.jsx'
 
-// A themed night sky that replaces the old HDRI background. Three layers, all
-// centered on the camera so they read as "infinitely far":
-//   1. a vertical gradient dome whose horizon = the fog colour, so the fogged
-//      world melts seamlessly into the sky and only the upper band is themed;
-//   2. a calm starfield (drei <Stars> — not fogged, see plan);
-//   3. a soft stylised moon disc aligned with the directional moonlight, so the
-//      visible moon agrees with where the shadows fall.
-// NOTE: FOG_COLOR / MOON_OFFSET are read inside the component (not at module
-// top level) — SkyAndLight imports this file, so reading those bindings during
-// module evaluation would hit the temporal dead zone.
+// A themed night sky that replaces the old HDRI background
 
 // Zenith stays themed; horizon is wired to FOG_COLOR at runtime.
 const SKY_TOP = '#0a1730' // deep, faintly violet night blue
@@ -22,8 +13,7 @@ const SKY_TOP_STORM = '#05080f' // near-black storm zenith
 const SKY_BOTTOM_STORM = '#0c1118' // matches FOG_STORM in SkyAndLight
 const MOON_TINT = '#cfd9f2' // cool moonlight, just bright enough to halo
 
-// Gradient is tone-mapped by the composer's ACES (same as the fog), so we add
-// no <tonemapping_fragment> here and leave the material toneMapped (default).
+// Gradient is tone-mapped by the composer's ACES (same as the fog)
 const skyVertex = /* glsl */ `
   varying vec3 vDir;
   void main() {

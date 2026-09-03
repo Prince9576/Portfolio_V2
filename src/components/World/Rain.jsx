@@ -1,14 +1,13 @@
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import { QUALITY } from '../../utils/quality.js'
 import { getPlayerBody } from '../../stores/playerRef.js'
 import { isInside } from '../../stores/theatreStore.js'
 import { stormLevel } from '../../stores/weatherStore.js'
 
-// GPU rain: one LineSegments draw call, every streak animated in the vertex
-// shader (position = seed + fallDirection * fall(t), wrapping vertically).
-// The whole volume follows the player via a uniform — no per-frame geometry.
-const COUNT = 3500
+// GPU rain: one draw call, every streak animated in the vertex shader
+const COUNT = QUALITY.rainCount
 const RADIUS = 26
 const HEIGHT = 30
 const STREAK = 0.55

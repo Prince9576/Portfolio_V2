@@ -1,5 +1,21 @@
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&display=swap');
 
+/* Palette for the loading screen and the work-experience modals: near-black
+   surfaces, muted gray borders, one vivid orange-red accent. */
+:root {
+  --bg: #000000;
+  --surface: #151515;
+  --surface-2: #1a1a1c;
+  --surface-3: #1c1c1e;
+  --border: #303034;
+  --accent: #ff4d0a;
+  --accent-deep: #8f260b;
+  --warm: #2f1912;
+  --text: rgba(240, 238, 236, 0.92);
+  --text-dim: rgba(240, 238, 236, 0.5);
+  --text-faint: rgba(240, 238, 236, 0.34);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -32,13 +48,28 @@ canvas {
   aspect-ratio: 1290 / 1028;
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid rgba(140, 122, 255, 0.45);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-  background: rgba(10, 14, 12, 0.5);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  background: rgba(10, 10, 10, 0.55);
   backdrop-filter: blur(4px);
   pointer-events: none;
   user-select: none;
   z-index: 20;
+  transition: width 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* Touch: a small corner pip until tapped */
+.minimap.compact {
+  width: 76px;
+}
+
+.minimap.tappable {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.minimap.compact .minimap-dot::after {
+  display: none;
 }
 
 .minimap img {
@@ -53,10 +84,10 @@ canvas {
   width: 11px;
   height: 11px;
   border-radius: 50%;
-  background: #7b6cff;
+  background: var(--accent);
   border: 2px solid rgba(255, 255, 255, 0.95);
   transform: translate(-50%, -50%);
-  box-shadow: 0 0 0 3px rgba(123, 108, 255, 0.35), 0 0 12px rgba(123, 108, 255, 0.95);
+  box-shadow: 0 0 0 3px rgba(255, 77, 10, 0.3), 0 0 12px rgba(255, 77, 10, 0.9);
   will-change: left, top;
 }
 
@@ -65,7 +96,7 @@ canvas {
   position: absolute;
   inset: -6px;
   border-radius: 50%;
-  border: 2px solid rgba(201, 182, 255, 0.6);
+  border: 2px solid rgba(255, 77, 10, 0.6);
   animation: minimapPing 1.8s ease-out infinite;
 }
 
@@ -81,7 +112,7 @@ canvas {
   inset: 0;
   z-index: 30;
   pointer-events: none;
-  background: radial-gradient(circle at 50% 50%, rgba(201, 182, 255, 0.95), rgba(123, 108, 255, 0.7) 45%, rgba(6, 6, 14, 0) 80%);
+  background: radial-gradient(circle at 50% 50%, rgba(255, 200, 170, 0.95), rgba(255, 77, 10, 0.7) 45%, rgba(0, 0, 0, 0) 80%);
   opacity: 0;
   animation: portalFlash 0.55s ease-out forwards;
 }
@@ -121,18 +152,17 @@ canvas {
   display: inline-block;
   padding: 2px 9px;
   border-radius: 5px;
-  border: 1px solid rgba(140, 122, 255, 0.6);
-  background: linear-gradient(180deg, rgba(124, 108, 255, 0.22), rgba(124, 108, 255, 0.08));
-  box-shadow: 0 0 12px rgba(124, 108, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  color: #d6ceff;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: var(--text-dim);
   font-weight: 700;
   font-size: 0.9em;
   letter-spacing: 0.5px;
 }
 
 .diamond {
-  color: #8d7dff;
-  filter: drop-shadow(0 0 6px rgba(124, 108, 255, 0.8));
+  color: var(--accent);
 }
 
 .shrine-hint {
@@ -145,9 +175,9 @@ canvas {
   gap: 10px;
   padding: 11px 24px;
   border-radius: 6px;
-  background: linear-gradient(180deg, rgba(11, 10, 24, 0.84), rgba(6, 6, 14, 0.88));
-  border: 1px solid rgba(124, 108, 255, 0.5);
-  color: rgba(232, 236, 248, 0.94);
+  background: linear-gradient(180deg, rgba(26, 26, 28, 0.88), rgba(10, 10, 10, 0.92));
+  border: 1px solid var(--border);
+  color: var(--text);
   font: 14px/1 'Space Grotesk', system-ui, sans-serif;
   letter-spacing: 0.3px;
   /* cut corners read as a HUD chip */
@@ -163,7 +193,7 @@ canvas {
     opacity 0.35s ease,
     transform 0.35s cubic-bezier(0.22, 0.61, 0.36, 1),
     visibility 0s linear 0.35s;
-  box-shadow: 0 0 24px rgba(124, 108, 255, 0.25);
+  box-shadow: 0 0 24px rgba(143, 38, 11, 0.3);
   animation: hintPulse 2.2s ease-in-out infinite;
 }
 
@@ -179,8 +209,8 @@ canvas {
 }
 
 @keyframes hintPulse {
-  0%, 100% { box-shadow: 0 0 18px rgba(124, 108, 255, 0.2); }
-  50% { box-shadow: 0 0 36px rgba(124, 108, 255, 0.5); }
+  0%, 100% { box-shadow: 0 0 18px rgba(143, 38, 11, 0.25); }
+  50% { box-shadow: 0 0 36px rgba(255, 77, 10, 0.35); }
 }
 
 /* In-room exit hint — same HUD chip, parked at the top so it never collides
@@ -195,9 +225,9 @@ canvas {
   gap: 10px;
   padding: 10px 22px;
   border-radius: 6px;
-  background: linear-gradient(180deg, rgba(11, 10, 24, 0.84), rgba(6, 6, 14, 0.88));
-  border: 1px solid rgba(124, 108, 255, 0.5);
-  color: rgba(232, 236, 248, 0.94);
+  background: linear-gradient(180deg, rgba(26, 26, 28, 0.88), rgba(10, 10, 10, 0.92));
+  border: 1px solid var(--border);
+  color: var(--text);
   font: 13.5px/1 'Space Grotesk', system-ui, sans-serif;
   letter-spacing: 0.3px;
   clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
@@ -210,7 +240,7 @@ canvas {
     opacity 0.35s ease,
     transform 0.35s cubic-bezier(0.22, 0.61, 0.36, 1),
     visibility 0s linear 0.35s;
-  box-shadow: 0 0 24px rgba(124, 108, 255, 0.25);
+  box-shadow: 0 0 24px rgba(143, 38, 11, 0.3);
 }
 
 .theatre-exit.show {
@@ -235,16 +265,14 @@ canvas {
   transform: translate(calc(100% + 60px), -50%);
   border-radius: 5px;
   background:
-    repeating-linear-gradient(0deg, rgba(124, 108, 255, 0.045) 0 1px, transparent 1px 4px),
-    linear-gradient(168deg, rgba(13, 11, 28, 0.97), rgba(6, 6, 14, 0.985)),
-    radial-gradient(135% 70% at 50% -8%, rgba(124, 108, 255, 0.22), transparent 62%);
-  border: 1px solid rgba(124, 108, 255, 0.42);
+    linear-gradient(168deg, rgba(26, 26, 28, 0.97), rgba(10, 10, 10, 0.985)),
+    radial-gradient(135% 70% at 50% -8%, var(--warm), transparent 62%);
+  border: 1px solid var(--border);
   box-shadow:
-    0 30px 90px rgba(0, 0, 0, 0.72),
-    0 0 60px rgba(80, 60, 210, 0.22),
-    inset 0 0 34px rgba(60, 45, 150, 0.2),
-    inset 0 1px 0 rgba(190, 175, 255, 0.1);
-  color: rgba(222, 228, 246, 0.92);
+    0 30px 90px rgba(0, 0, 0, 0.8),
+    0 0 60px rgba(143, 38, 11, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: var(--text);
   font: 14.5px/1.65 'Inter', system-ui, sans-serif;
   opacity: 0;
   /* see .shrine-hint: no compositor layer while hidden */
@@ -276,9 +304,9 @@ canvas {
   right: 1px;
   top: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, #7c6cff, #4f9cff, #b388ff, transparent);
+  background: linear-gradient(90deg, transparent, var(--accent-deep), var(--accent), transparent);
   background-size: 200% 100%;
-  filter: drop-shadow(0 0 6px rgba(124, 108, 255, 0.7));
+  filter: drop-shadow(0 0 6px rgba(255, 77, 10, 0.5));
   animation: hudScan 4.5s linear infinite paused;
 }
 
@@ -295,8 +323,8 @@ canvas {
   height: 13px;
   z-index: 3;
   pointer-events: none;
-  border: 1.5px solid rgba(155, 140, 255, 0.85);
-  filter: drop-shadow(0 0 5px rgba(124, 108, 255, 0.55));
+  border: 1.5px solid var(--accent);
+  filter: drop-shadow(0 0 5px rgba(255, 77, 10, 0.45));
 }
 .work-panel .cnr.tl { top: 8px; left: 8px; border-right: 0; border-bottom: 0; }
 .work-panel .cnr.tr { top: 8px; right: 8px; border-left: 0; border-bottom: 0; }
@@ -313,7 +341,7 @@ canvas {
 
 .panel-scroll::-webkit-scrollbar { width: 6px; }
 .panel-scroll::-webkit-scrollbar-thumb {
-  background: rgba(124, 108, 255, 0.4);
+  background: var(--border);
   border-radius: 3px;
 }
 .panel-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -326,17 +354,18 @@ canvas {
   width: 28px;
   height: 28px;
   border-radius: 4px;
-  border: 1px solid rgba(124, 108, 255, 0.4);
-  background: rgba(124, 108, 255, 0.12);
-  color: rgba(214, 206, 255, 0.9);
+  border: 1px solid var(--border);
+  background: var(--surface-3);
+  color: var(--text-dim);
   font-size: 12px;
   cursor: pointer;
   transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 
 .work-panel .close:hover {
-  background: rgba(124, 108, 255, 0.3);
-  box-shadow: 0 0 16px rgba(124, 108, 255, 0.5);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
   transform: scale(1.08);
 }
 
@@ -346,12 +375,12 @@ canvas {
   gap: 7px;
   padding: 5px 12px;
   border-radius: 4px;
-  border: 1px solid rgba(124, 108, 255, 0.35);
-  background: rgba(124, 108, 255, 0.1);
+  border: 1px solid var(--border);
+  background: var(--surface);
   font: 700 11px/1 'Space Grotesk', sans-serif;
   letter-spacing: 3px;
   text-transform: uppercase;
-  color: #c4baff;
+  color: var(--accent);
   margin-bottom: 14px;
 }
 
@@ -359,19 +388,19 @@ canvas {
   font: 700 34px/1.1 'Space Grotesk', sans-serif;
   letter-spacing: -0.5px;
   margin-bottom: 5px;
-  background: linear-gradient(100deg, #ffffff, #bcb0ff 52%, #6fb0ff);
+  background: linear-gradient(100deg, #ffffff, #ffc9ae 60%, var(--accent));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  filter: drop-shadow(0 0 22px rgba(124, 108, 255, 0.4));
+  filter: drop-shadow(0 0 22px rgba(255, 77, 10, 0.28));
 }
 
 .work-panel .role {
   font-size: 13.5px;
-  color: rgba(176, 186, 214, 0.85);
+  color: var(--text-dim);
   margin-bottom: 18px;
   padding-bottom: 16px;
-  border-bottom: 1px solid rgba(124, 108, 255, 0.2);
+  border-bottom: 1px solid var(--border);
 }
 
 .work-panel ul {
@@ -397,21 +426,32 @@ canvas {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Project bullets lead with a label, so it gets the accent and its own line. */
+.work-panel li b {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+}
+
 .work-panel li::before {
   content: '▹';
   position: absolute;
   left: 0;
   top: 0;
   font-size: 13px;
-  color: #8d7dff;
-  filter: drop-shadow(0 0 6px rgba(124, 108, 255, 0.7));
+  color: var(--accent);
 }
 
 .work-panel .hint-row {
   font-size: 11.5px;
-  color: rgba(150, 158, 186, 0.66);
+  color: var(--text-faint);
   text-align: center;
 }
+
 
 /* ---------- Weekend beer easter egg — warm amber against the violet HUD ---------- */
 
@@ -612,4 +652,114 @@ canvas {
   letter-spacing: 1.2px;
   text-transform: uppercase;
   color: rgba(255, 210, 160, 0.75);
+}
+
+/* ---------- Touch controls: thumbstick + jump ---------- */
+
+.tc-stick,
+.tc-jump {
+  position: fixed;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  z-index: 26;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tc-stick {
+  left: calc(24px + env(safe-area-inset-left, 0px));
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: rgba(21, 21, 21, 0.42);
+  backdrop-filter: blur(3px);
+  transition: border-color 0.18s ease;
+}
+
+.tc-stick.active {
+  border-color: var(--accent-deep);
+}
+
+/* Faint ring marking where walking turns into a sprint */
+.tc-stick::before {
+  content: '';
+  position: absolute;
+  inset: 22px;
+  border-radius: 50%;
+  border: 1px dashed rgba(255, 77, 10, 0.22);
+}
+
+.tc-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--accent);
+  box-shadow: 0 0 18px rgba(255, 77, 10, 0.4);
+  pointer-events: none;
+}
+
+.tc-jump {
+  right: calc(24px + env(safe-area-inset-right, 0px));
+  bottom: calc(30px + env(safe-area-inset-bottom, 0px));
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+  color: var(--accent);
+  border: 1px solid var(--border);
+  background: rgba(21, 21, 21, 0.42);
+  backdrop-filter: blur(3px);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.tc-jump:active {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.tc-jump svg {
+  width: 32px;
+  height: 32px;
+  display: block;
+}
+
+/* ---------- Touch: interaction prompts move to the top ---------- */
+/* The bottom of a phone screen belongs to the thumbstick and jump button, so
+   the proximity chips sit at the top instead and slide down into view. */
+
+@media (pointer: coarse) {
+  .shrine-hint,
+  .beer-hint {
+    top: calc(18px + env(safe-area-inset-top, 0px));
+    bottom: auto;
+    transform: translate(-50%, -14px);
+    /* max-content first: a flex row would otherwise shrink the label and wrap it
+       into three ragged lines well before it runs out of room. */
+    width: max-content;
+    max-width: min(84vw, 460px);
+    align-items: flex-start;
+  }
+
+  .shrine-hint.show,
+  .beer-hint.show {
+    transform: translate(-50%, 0);
+  }
+}
+
+/* Narrow portrait: clear the minimap pip in the top-right corner. */
+@media (pointer: coarse) and (max-width: 560px) {
+  .shrine-hint,
+  .beer-hint {
+    top: calc(94px + env(safe-area-inset-top, 0px));
+    max-width: calc(100vw - 24px);
+  }
 }

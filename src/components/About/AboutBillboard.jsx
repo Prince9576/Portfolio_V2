@@ -16,20 +16,17 @@ const BORDER = 0.18
 const POS = { x: 11.1, y: 6.5, z: 34.7 }
 const YAW = 0
 
-// Screen (inset) dimensions + a canvas whose aspect matches them exactly, so
-// text never stretches.
+// Screen (inset) dimensions + a canvas whose aspect matches them exactly, so text never stretches
 const SW = W - BORDER * 2
 const SH = H - BORDER * 2
 const CW = 1024
 const CH = Math.round((CW * SH) / SW)
 
-// The video's slot on the panel. We shape it to the clip's own aspect (the intro
-// is a portrait video) so it fills the slot edge-to-edge instead of letterboxing.
-// It's pinned to the left margin and vertically centred (so its world Y = 0).
+// The video's slot on the panel
 const SLOT_LEFT = 46
 const SLOT_MAX_W = 300
 const SLOT_MARGIN_Y = 40
-const VIDEO_INSET = 0.96 // shrink the video a touch so the neon border stays visible
+const VIDEO_INSET = 0.96 // shrink the video a touch so the neon border
 
 function slotRect(aspect) {
   const boxH = CH - SLOT_MARGIN_Y * 2
@@ -55,7 +52,7 @@ const ICONS = {
     'M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z',
 }
 const LINKS = [
-  { key: 'resume', color: '#5ad1ff', href: ABOUT.resume, download: true },
+  { key: 'resume', color: '#ff4d0a', href: ABOUT.resume, download: true },
   { key: 'instagram', color: '#ff5ad1', href: ABOUT.links.instagram },
   { key: 'github', color: '#ffffff', href: ABOUT.links.github },
   { key: 'linkedin', color: '#4aa3ff', href: ABOUT.links.linkedin },
@@ -93,22 +90,22 @@ function drawPanel(ctx, aspect) {
   ctx.clip()
 
   const bg = ctx.createLinearGradient(0, 0, 0, CH)
-  bg.addColorStop(0, '#250d57')
-  bg.addColorStop(0.55, '#160a3a')
-  bg.addColorStop(1, '#06031a')
+  bg.addColorStop(0, '#2f1912')
+  bg.addColorStop(0.55, '#151515')
+  bg.addColorStop(1, '#000000')
   ctx.fillStyle = bg
   ctx.fillRect(0, 0, CW, CH)
   const g1 = ctx.createRadialGradient(CW * 0.15, CH * 0.92, 0, CW * 0.15, CH * 0.92, CH)
-  g1.addColorStop(0, 'rgba(90,209,255,0.32)')
-  g1.addColorStop(1, 'rgba(90,209,255,0)')
+  g1.addColorStop(0, 'rgba(255,77,10,0.20)')
+  g1.addColorStop(1, 'rgba(255,77,10,0)')
   ctx.fillStyle = g1
   ctx.fillRect(0, 0, CW, CH)
   const g2 = ctx.createRadialGradient(CW * 0.86, CH * 0.06, 0, CW * 0.86, CH * 0.06, CH)
-  g2.addColorStop(0, 'rgba(255,90,209,0.28)')
-  g2.addColorStop(1, 'rgba(255,90,209,0)')
+  g2.addColorStop(0, 'rgba(143,38,11,0.45)')
+  g2.addColorStop(1, 'rgba(143,38,11,0)')
   ctx.fillStyle = g2
   ctx.fillRect(0, 0, CW, CH)
-  ctx.strokeStyle = 'rgba(150,120,255,0.13)'
+  ctx.strokeStyle = 'rgba(255,77,10,0.10)'
   ctx.lineWidth = 2
   for (let gy = CH * 0.55; gy < CH; gy += 22) {
     ctx.beginPath()
@@ -118,18 +115,17 @@ function drawPanel(ctx, aspect) {
   }
   ctx.restore()
 
-  // video slot — shaped to the (portrait) intro clip, dark fill behind it as a
-  // fallback, framed by the neon border. The actual footage is a WebGL plane.
+  // video slot — shaped to the (portrait) intro clip, dark fill behind it as a fallback
   const slot = slotRect(aspect)
   ctx.save()
   roundRect(ctx, slot.x, slot.y, slot.w, slot.h, 18)
   ctx.clip()
-  ctx.fillStyle = '#1b1140'
+  ctx.fillStyle = '#1a1a1c'
   ctx.fillRect(slot.x, slot.y, slot.w, slot.h)
   ctx.restore()
   ctx.lineWidth = 3
-  ctx.strokeStyle = '#5ad1ff'
-  ctx.shadowColor = '#5ad1ff'
+  ctx.strokeStyle = '#ff4d0a'
+  ctx.shadowColor = '#ff4d0a'
   ctx.shadowBlur = 20
   roundRect(ctx, slot.x, slot.y, slot.w, slot.h, 18)
   ctx.stroke()
@@ -141,8 +137,8 @@ function drawPanel(ctx, aspect) {
   ctx.textBaseline = 'top'
 
   ctx.font = '700 25px Orbitron, sans-serif'
-  ctx.fillStyle = '#5ad1ff'
-  ctx.shadowColor = '#5ad1ff'
+  ctx.fillStyle = '#ff4d0a'
+  ctx.shadowColor = '#ff4d0a'
   ctx.shadowBlur = 14
   ctx.fillText('◆  ' + ABOUT.name.toUpperCase(), bx, 46)
   ctx.shadowBlur = 0
@@ -158,9 +154,9 @@ function drawPanel(ctx, aspect) {
     lines = wrapLines(ctx, ABOUT.title.toUpperCase(), bw)
   }
   const tg = ctx.createLinearGradient(bx, 0, bx + bw, 0)
-  tg.addColorStop(0, '#7af9ff')
-  tg.addColorStop(0.5, '#b388ff')
-  tg.addColorStop(1, '#ff7ad6')
+  tg.addColorStop(0, '#ffffff')
+  tg.addColorStop(0.5, '#ffc9ae')
+  tg.addColorStop(1, '#ff4d0a')
   ctx.fillStyle = tg
   ctx.shadowColor = ABOUT.theme.primary
   ctx.shadowBlur = 26
@@ -174,8 +170,8 @@ function drawPanel(ctx, aspect) {
 
   const subF = 32
   ctx.font = `700 ${subF}px Orbitron, sans-serif`
-  ctx.fillStyle = '#ff7ad6'
-  ctx.shadowColor = '#ff5ad1'
+  ctx.fillStyle = '#ff4d0a'
+  ctx.shadowColor = '#8f260b'
   ctx.shadowBlur = 16
   ctx.fillText(ABOUT.subtitle.toUpperCase(), bx, ty + 2)
   ctx.shadowBlur = 0
@@ -192,7 +188,7 @@ function drawPanel(ctx, aspect) {
   ctx.shadowBlur = 0
   cy += 20
 
-  ctx.fillStyle = 'rgba(225,230,255,0.9)'
+  ctx.fillStyle = 'rgba(240,238,236,0.9)'
   ctx.font = '400 27px "Space Grotesk", system-ui, sans-serif'
   for (const ln of wrapLines(ctx, ABOUT.description, bw)) {
     ctx.fillText(ln, bx, cy)
@@ -271,9 +267,7 @@ function makeScanMaterial(color) {
   })
 }
 
-// Frosted-glass play/pause control — purely visual (pointer-events:none) so all
-// clicks/hover pass through to the WebGL video plane below, which owns the
-// interaction. Visibility is driven by React (shown while paused or hovered).
+// Frosted-glass play/pause control — purely visual (pointer-events:none) so all clicks/hover pass
 const VPLAYER_CSS = `
 .ab-video-wrap{pointer-events:none}
 .ab-glass{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;border:1px solid rgba(255,255,255,.5);background:rgba(255,255,255,.14);-webkit-backdrop-filter:blur(8px) saturate(140%);backdrop-filter:blur(8px) saturate(140%);box-shadow:0 6px 20px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.45);transition:opacity .3s ease;pointer-events:none}
@@ -285,8 +279,7 @@ export default function AboutBillboard() {
   const frameMat = useMemo(() => makeFrameMaterial(ABOUT.theme.primary), [])
   const scanMat = useMemo(() => makeScanMaterial(ABOUT.theme.accent), [])
 
-  // Matte cartoon grey like the pole. envMapIntensity:0 stops the big flat faces
-  // from mirroring the EXR sky (which produced the oil-slick rainbow).
+  // Matte cartoon grey like the pole
   const boxMat = useMemo(
     () => new THREE.MeshStandardMaterial({ color: '#6c6f76', roughness: 0.85, metalness: 0, envMapIntensity: 0 }),
     [],
@@ -302,9 +295,7 @@ export default function AboutBillboard() {
     return { texture: tex, canvas: cv }
   }, [])
 
-  // Inline intro video that replaces the portrait. WebGL VideoTexture so it sits
-  // under the neon frame + scanline shaders and shares the sign's tone mapping;
-  // the play/pause control is real DOM (for genuine glassmorphism + hover/fade).
+  // Inline intro video that replaces the portrait
   const [playing, setPlaying] = useState(false)
   const [hovered, setHovered] = useState(false)
   const [facing, setFacing] = useState(true) // camera on the billboard's front side
@@ -321,16 +312,14 @@ export default function AboutBillboard() {
   }, [])
 
   useEffect(() => {
-    // Assign the source here (not in useMemo): StrictMode mounts → cleans up →
-    // mounts again, and a src cleared in cleanup would never be restored,
-    // surfacing as "the element has no supported sources".
+    // Assign the source here (not in useMemo): StrictMode mounts → cleans up → mounts again
     if (video.getAttribute('src') !== INTRO_VIDEO) {
       video.src = INTRO_VIDEO
       video.load()
     }
     const onPlay = () => {
       setPlaying(true)
-      duckAmbientMusic() // silence the wind / intro theme while the video has the floor
+      duckAmbientMusic() // silence the wind while the video plays
     }
     const onStop = () => {
       setPlaying(false)
@@ -366,8 +355,7 @@ export default function AboutBillboard() {
   useEffect(() => {
     const ctx = canvas.getContext('2d')
     const redraw = () => {
-      // Pass the video aspect so the slot/border match the clip's shape; the
-      // footage itself is the WebGL plane drawn below.
+      // Pass the video aspect so the slot/border match the clip's shape
       hitsRef.current = drawPanel(ctx, videoAspect)
       texture.needsUpdate = true
     }
@@ -381,9 +369,7 @@ export default function AboutBillboard() {
   useFrame((s) => {
     frameMat.uniforms.uTime.value = s.clock.elapsedTime
     scanMat.uniforms.uTime.value = s.clock.elapsedTime
-    // The billboard faces +z (YAW 0); the DOM control is screen-space and would
-    // otherwise show through from behind. Hide it once the camera is on the back
-    // side, with a 0.6m dead-zone so it doesn't flicker right at the plane.
+    // The billboard faces +z (YAW 0); the DOM control is screen-space and would otherwise show
     const z = s.camera.position.z
     const inFront = facingRef.current ? z > POS.z - 0.6 : z > POS.z + 0.6
     if (inFront !== facingRef.current) {
@@ -419,8 +405,7 @@ export default function AboutBillboard() {
   const front = DEPTH / 2
   const skip = () => null
 
-  // Video plane fills the slot (which already matches the clip's aspect), inset
-  // slightly so the neon border shows. Slot is vertically centred → world Y = 0.
+  // Video plane fills the slot (which already matches the clip's aspect)
   const slot = slotRect(videoAspect)
   const planeX = ((slot.x + slot.w / 2) / CW - 0.5) * SW
   const planeW = (slot.w / CW) * SW * VIDEO_INSET

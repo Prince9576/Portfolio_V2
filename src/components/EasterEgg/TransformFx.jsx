@@ -6,6 +6,7 @@ import { getPlayerBody } from '../../stores/playerRef.js'
 import { useTransform } from '../../stores/transformStore.js'
 import { playSfx } from '../../utils/sfx.js'
 
+// A golden smoke-puff that fires on the actual skin swaps (sober→monster and monster→sober)
 const PUFF_DUR = 0.75
 
 export default function TransformFx() {

@@ -1,15 +1,18 @@
+// Owns the world's wind ambience as a plain looping <audio> element (no React)
 const WIND_URL = '/audio/wind.mp3'
 const WIND_VOL = 0.3
-const WIND_DUCKED = 0.1
+const WIND_DUCKED = 0.1 // wind stays on under the engine
 const FADE_MS = 800
-const START_FADE_MS = 1200
+const START_FADE_MS = 1200 // gentler fade-in for the wind on first load
 
 let wind = null
 let started = false
 
+// duck() / unduck() for the About billboard's intro video.
 let ducked = false
 let resumeWind = false
 
+// In-flight fade, so a new fade cancels the old one instead of fighting it.
 const fades = new WeakMap()
 
 function fadeTo(el, target, ms = FADE_MS, onDone) {
@@ -26,7 +29,7 @@ function fadeTo(el, target, ms = FADE_MS, onDone) {
   const start = performance.now()
   const step = (now) => {
     const k = Math.min((now - start) / ms, 1)
-    const eased = k * k * (3 - 2 * k)
+    const eased = k * k * (3 - 2 * k) // smoothstep
     el.volume = from + (target - from) * eased
     if (k < 1) {
       fades.set(el, requestAnimationFrame(step))
@@ -47,6 +50,7 @@ function ensure() {
   wind.preload = 'auto'
 }
 
+// Called from the Start screen — a real click, so play() is allowed.
 export function startAmbient() {
   ensure()
   started = true
@@ -54,12 +58,14 @@ export function startAmbient() {
   fadeTo(wind, WIND_VOL, START_FADE_MS)
 }
 
+// Seated in the car: duck the wind so the engine takes the foreground.
 export function enterCarMusic() {
   ensure()
   if (!started) return
   fadeTo(wind, WIND_DUCKED)
 }
 
+// Stepped out: bring the wind back up.
 export function exitCarMusic() {
   ensure()
   fadeTo(wind, WIND_VOL)
@@ -83,6 +89,7 @@ export function unduckAmbientMusic() {
   }
 }
 
+// Vite HMR: stop + free the audio (and cancel any running fade) when this module is hot-replaced
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     if (wind) {

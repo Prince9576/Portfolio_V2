@@ -1,12 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getPlayerBody } from '../../stores/playerRef.js'
 import { useTheatre } from '../../stores/theatreStore.js'
+import { useIsTouch } from '../../utils/device.js'
 
-// map.png is a true top-down screenshot of the city, framed exactly to the
-// world footprint. The shot is rotated relative to the axes: world Z runs
-// horizontally (+Z → right) and world X runs vertically (+X → top). Verified
-// against the twisted tower (x30,z46 → top-right) and the two plaza fountains
-// (x-12.6, z-15.3 / z30.2 → the orange & cyan rings mid-band). No insets.
+// map.png is a true top-down screenshot of the city, framed exactly to the world footprint
 const MIN_X = -60
 const MAX_X = 60
 const MIN_Z = -75
@@ -21,13 +18,15 @@ function project(x, z) {
   }
 }
 
-// Top-right 2D minimap with a live dot tracking the player. Lives outside the
-// Canvas, so we poll the shared rapier body via rAF and mutate the dot's
-// transform directly — no per-frame React render.
+// Top-right 2D minimap with a live dot tracking the player
 export default function Minimap() {
   const dotRef = useRef(null)
   // The city map is meaningless inside the theatre — and the player is off-map.
   const inside = useTheatre((s) => s.phase === 'inside')
+  // On a phone the map starts as a small corner pip and expands on tap, so it
+  // isn't eating a chunk of a screen that's already short on room.
+  const touch = useIsTouch()
+  const [expanded, setExpanded] = useState(false)
 
   useEffect(() => {
     let raf
@@ -48,8 +47,14 @@ export default function Minimap() {
 
   if (inside) return null
 
+  const compact = touch && !expanded
+
   return (
-    <div className="minimap" aria-hidden="true">
+    <div
+      className={`minimap${compact ? ' compact' : ''}${touch ? ' tappable' : ''}`}
+      aria-hidden={!touch}
+      onClick={touch ? () => setExpanded((v) => !v) : undefined}
+    >
       <img src="/images/map.png" alt="" draggable="false" />
       <span ref={dotRef} className="minimap-dot" />
     </div>

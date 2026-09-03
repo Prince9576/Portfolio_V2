@@ -1,16 +1,16 @@
 import { COMPANIES } from '../../content/companies.js'
 import { useShrine } from '../../stores/shrineStore.js'
+import { useIsTouch } from '../../utils/device.js'
+import ActionKey from './ActionKey.jsx'
 
-// DOM overlay shared by every shrine: a proximity hint plus the experience
-// panel. The panel renders whichever company is currently open/closing, so a
-// single overlay serves all shrines.
+// DOM overlay shared by every shrine: a proximity hint plus the experience panel
 export default function ShrineUI() {
   const phases = useShrine((s) => s.phases)
   const setPhase = useShrine((s) => s.setPhase)
+  const touch = useIsTouch()
 
   const anyHint = COMPANIES.some((c) => phases[c.id] === 'hint')
-  // The open/closing company drives the panel content (keeps content during the
-  // slide-out animation; the panel is off-screen otherwise).
+  // The open/closing company drives the panel content
   const active = COMPANIES.find((c) => phases[c.id] === 'open' || phases[c.id] === 'closing')
   const isOpen = active && phases[active.id] === 'open'
 
@@ -19,7 +19,7 @@ export default function ShrineUI() {
       <div className={`shrine-hint ${anyHint ? 'show' : ''}`}>
         <span className="diamond">◈</span>
         <span>
-          <span className="key">Enter</span> to view my Work Experience
+          <ActionKey /> to view my Work Experience
         </span>
       </div>
 
@@ -51,7 +51,8 @@ export default function ShrineUI() {
               ))}
             </ul>
             <p className="hint-row">
-              <span className="key">Esc</span> or walk away to close · hold &amp; release the mark ✦
+              {touch ? 'Walk away to close' : <><span className="key">Esc</span> or walk away to close</>} ·
+              hold &amp; release the mark ✦
             </p>
           </div>
         )}

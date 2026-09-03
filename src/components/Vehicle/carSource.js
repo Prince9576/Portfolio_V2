@@ -1,21 +1,14 @@
 import * as THREE from 'three'
 import meta from '../../content/worldMeta.json'
 
-// Shared source-of-truth for the one drivable car. The cars in city.glb are
-// GPU-instanced; "Futuristic_Car_1" is a 5-primitive mesh (so three.js loads it
-// as a Group of suffixed child meshes — "Futuristic_Car_1", "Futuristic_Car_1_1"…)
-// plus four separate "Futuristic_Car_1_Wheel_*" nodes. We pick the instance
-// nearest spawn (the one already in view), rebuild it as a standalone object the
-// physics body can move, and hide that original instance so there's no duplicate.
-// City reads the same pick to skip that parked-car collider.
+// Shared source-of-truth for the one drivable car
 const PART_RE = /^Futuristic_Car_1(_|$)/
 const isWheel = (o) => /wheel/i.test(o.name)
 
 // Toggle the whole feature with ?nocar — kept here so City and the car agree.
-export const DRIVABLE_CAR_ENABLED = !new URLSearchParams(window.location.search).has('nocar')
+export const DRIVABLE_CAR_ENABLED = true
 
-// The car "body" is any non-wheel part; prefer an instanced one. Robust to
-// however three.js ends up naming the multi-primitive children.
+// The car "body" is any non-wheel part; prefer an instanced one
 function findBody(parts) {
   return (
     parts.find((o) => !isWheel(o) && o.isInstancedMesh) ||
@@ -75,9 +68,7 @@ export function pickDrivableCar(scene) {
   return { parts, index, position, yaw }
 }
 
-// Rebuild the chosen instance as a standalone, centred group. Each part keeps
-// its in-car layout; materials are cloned so we never tint the parked decoration
-// cars. Returns the object + collider half-extents.
+// Rebuild the chosen instance as a standalone, centred group
 export function buildCarVisual(parts, index) {
   const body = findBody(parts)
   const bodyInv = worldMatrixOf(body, index).invert()
@@ -87,8 +78,7 @@ export function buildCarVisual(parts, index) {
     const rel = bodyInv.clone().multiply(worldMatrixOf(o, index))
     const mesh = new THREE.Mesh(o.geometry, o.material.clone())
     mesh.applyMatrix4(rel)
-    // No shadows on the clone: soft (PCSS) shadows are costly per pixel and the
-    // car sits near the camera. The parked decoration cars still cast shadows.
+    // No shadows on the clone: soft shadows are costly and it sits low
     mesh.castShadow = false
     mesh.receiveShadow = false
     group.add(mesh)
@@ -106,8 +96,7 @@ export function buildCarVisual(parts, index) {
   return { object: wrap, half: [size.x / 2, size.y / 2, size.z / 2] }
 }
 
-// Make the original parked instance vanish (scale it to zero). Returns a restore
-// fn so HMR / unmount puts the city back exactly as it was.
+// Make the original parked instance vanish (scale it to zero)
 export function hideCarInstance(parts, index) {
   const ZERO = new THREE.Matrix4().makeScale(0, 0, 0)
   const saved = []

@@ -15,30 +15,26 @@ const MARKER = '#36d6ff' // neon light blue, matches the car
 const NEAR_RADIUS = 5 // how close to show the "Enter" hint
 const MAX_SPEED = 14 // forward top speed (m/s) — player sprint is ~7
 const MAX_REVERSE = 6 // reverse top speed
-const ACCEL = 9 // throttle acceleration (m/s²) — ramps up like a real car
-const BRAKE = 20 // harder deceleration when reversing the throttle
+const ACCEL = 9 // throttle acceleration (m/s²)
+const BRAKE = 20 // harder deceleration when reversing
 const COAST_DRAG = 6 // engine braking when you let off the gas
 const BOOST_SPEED = 24 // top speed while holding Shift (turbo)
 const BOOST_ACCEL = 18 // snappier acceleration during boost
-const BOOST_FALLOFF = 10 // how fast you ease back to cruise speed after releasing Shift
+const BOOST_FALLOFF = 10 // ease-back rate after a boost
 const TURN_RATE = 2.3 // steering rate (rad/s) at speed
 const FORWARD_SIGN = 1 // flip to -1 if W/Up drives the car backwards
 const CAM_DIST = 7.5 // chase camera distance behind the car
 const CAM_HEIGHT = 3.2 // chase camera height
 const CAM_LERP = 6 // chase camera smoothing
 
-// Crash SFX: read the contact force the solver already computed; gate it so
-// gentle scrapes stay quiet and a single bump can't machine-gun the clip.
-const CRASH_MIN_FORCE = 80 // ignore contacts below this (nudges, curb scrapes)
+// Crash SFX: read the contact force the solver already computed
+const CRASH_MIN_FORCE = 80 // below this a contact is just a nudge
 const CRASH_MAX_FORCE = 1400 // force mapped to a full-volume hit
-// Contact force fires every frame while pressed against a wall, so debounce on the
-// *leading edge*: a hit only counts if contact was quiet for CRASH_REARM first, and
-// never two within CRASH_MIN_GAP (so a single bouncy crash is one sound, not eight).
-const CRASH_REARM = 0.12 // seconds of no contact before a new impact can register
+// Contact force fires every frame while pressed against a wall
+const CRASH_REARM = 0.12 // seconds of no contact before a new impact can
 const CRASH_MIN_GAP = 0.45 // hard floor between crash sounds
 
-// Tyre marks: one pooled InstancedMesh (single draw call). Matrices are written
-// only while sliding, every MARK_SPACING metres, so density is fps/speed-proof.
+// Tyre marks: one pooled InstancedMesh (single draw call)
 const SKID_POOL = 200 // total marks in the ring buffer (~2 trails)
 const MARK_SPACING = 0.4 // metres travelled between marks
 const MARK_W = 0.18 // tyre-mark width (m)
@@ -49,8 +45,7 @@ const HEADLIGHT_INTENSITY = 16
 const HEADLIGHT_DISTANCE = 26
 const HEADLIGHT_ANGLE = 0.52
 
-// Reused scratch objects — there's only one car, so allocating per frame would
-// just feed the GC and cause hitches (that exit-lag). Mutate these instead.
+// Reused scratch objects — there's only one car
 const _q = new THREE.Quaternion()
 const _fwd = new THREE.Vector3()
 const _look = new THREE.Vector3()
@@ -67,9 +62,7 @@ const FLAT_Q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0
 
 const BEAM_H = 5.5 // height of the light pillar rising from the car
 
-// Beacon shaders lifted from the work-experience shrines so the car reads as
-// "interactable" the same way — a rising additive light pillar + a ground glow,
-// recoloured to the car's neon blue.
+// Beacon shaders lifted from the work-experience shrines so the car reads as "interactable"
 function makeBeamMaterial(color) {
   return new THREE.ShaderMaterial({
     transparent: true,
@@ -157,16 +150,13 @@ export default function DrivableCar() {
     groundMat.dispose()
   }, [beamMat, groundMat])
 
-  // Hide the original parked instance so the clone replaces it in place. In an
-  // effect (not render) so City's collider pass + our visual build both read the
-  // car's real transform first; restored on unmount/HMR.
+  // Hide the original parked instance so the clone replaces it in place
   useEffect(() => {
     if (!pick) return undefined
     return hideCarInstance(pick.parts, pick.index)
   }, [pick])
 
-  // Driving input — raw window keys. Ecctrl's control is off while driving, so
-  // these never fight the character.
+  // Driving input — raw window keys
   useEffect(() => {
     const set = (e, down) => {
       switch (e.code) {
@@ -199,7 +189,7 @@ export default function DrivableCar() {
     pb.setEnabled(false) // freeze + decollide the character while driving
     setPhase('driving')
     enterCarMusic()
-    startEngine() // engine idles immediately, revs with speed (see useFrame)
+    startEngine() // engine idles immediately
   }
 
   const exit = () => {
@@ -223,12 +213,10 @@ export default function DrivableCar() {
     stopEngine()
   }
 
-  // Crash sound scaled by impact force. Rapier already computed the contact, so
-  // this is just a read + a gated one-shot. Throttled so one bump won't retrigger.
+  // Crash sound scaled by impact force
   const onCrash = (payload) => {
     if (useVehicle.getState().phase !== 'driving') return
-    // Horizontal force only: resting on the ground is a constant *vertical* normal
-    // force — ignoring Y means gravity/road contact never fires, only side impacts.
+    // Horizontal force only: resting on the ground is a constant *vertical* normal force
     const f = payload.totalForce
     const mag = Math.hypot(f.x, f.z)
     if (mag < CRASH_MIN_FORCE) return
@@ -283,8 +271,7 @@ export default function DrivableCar() {
       _fwd.y = 0
       _fwd.normalize()
 
-      // Ramped acceleration: hold to build speed, ease off to coast, reverse to brake.
-      // Hold Shift to turbo — more accel and a higher cap (forward only).
+      // Ramped acceleration: hold to build speed, ease off to coast, reverse to brake
       const throttle = (keys.current.f ? 1 : 0) - (keys.current.b ? 1 : 0)
       const boosting = keys.current.boost && throttle > 0
       const accel = boosting ? BOOST_ACCEL : ACCEL
@@ -302,8 +289,7 @@ export default function DrivableCar() {
       s = THREE.MathUtils.clamp(s, -MAX_REVERSE, BOOST_SPEED)
       speedRef.current = s
 
-      // Engine pitch/volume follow speed (forward or reverse). Audio-thread
-      // smoothed, so this per-frame call is essentially free.
+      // Engine pitch/volume follow speed (forward or reverse)
       setEngine(Math.abs(s) / MAX_SPEED)
 
       const v = cb.linvel()
