@@ -24,5 +24,12 @@ export const QUALITY = {
   sparklesFar: touch ? 50 : 160,
   rainCount: touch ? 1100 : 3500,
   logoParticles: touch ? 2000 : 4500,
-  orbSteps: touch ? 16 : 32, // raymarch iterations, the heaviest fragment cost
+  // Raymarch iterations for the black-hole orb. 16 was too few: the ray then
+  // stops short of the event horizon and the black core disappears entirely on
+  // phones. 24 is the lowest that still renders a core pixel-identical to the
+  // desktop 32 (the shader derives its step size from a fixed reach, so fewer
+  // steps means coarser sampling, not a shorter ray). Cheaper than it looks —
+  // the costly part is the disk's fbm, which runs on disk crossings only, not
+  // per step.
+  orbSteps: touch ? 24 : 32,
 }

@@ -2,54 +2,15 @@ import * as THREE from 'three'
 
 // Procedural canvas textures for the Project Theatre — drawn once, cached
 
-// Neon "PROJECT THEATRE" laid flat on the floor, in Orbitron to match the about billboard
-const FLOOR_TEXT_W = 2048
-const FLOOR_TEXT_H = 768
-
-export function drawFloorText(canvas) {
-  const w = canvas.width
-  const h = canvas.height
-  const g = canvas.getContext('2d')
-  g.clearRect(0, 0, w, h)
-  g.textAlign = 'center'
-  g.textBaseline = 'middle'
-
-  const grad = g.createLinearGradient(w * 0.2, 0, w * 0.8, 0)
-  grad.addColorStop(0, '#8f260b')
-  grad.addColorStop(0.5, '#ff4d0a')
-  grad.addColorStop(1, '#ffa03d')
-
-  const draw = (text, y, size) => {
-    g.font = `800 ${size}px 'Orbitron', system-ui, sans-serif`
-    g.shadowColor = 'rgba(255,77,10,0.8)'
-    g.shadowBlur = 20
-    g.fillStyle = grad
-    g.fillText(text, w / 2, y)
-    g.shadowColor = 'rgba(255,201,174,0.75)'
-    g.shadowBlur = 5
-    g.fillStyle = 'rgba(245,250,255,0.97)'
-    g.fillText(text, w / 2, y)
-  }
-
-  draw('PROJECT', h * 0.37, 250)
-  draw('THEATRE', h * 0.74, 250)
-}
-
-export function makeFloorTextTexture() {
-  const c = document.createElement('canvas')
-  c.width = FLOOR_TEXT_W
-  c.height = FLOOR_TEXT_H
-  drawFloorText(c)
-  const tex = new THREE.CanvasTexture(c)
-  tex.anisotropy = 8
-  tex.colorSpace = THREE.SRGBColorSpace
-  return tex
-}
-
-// Placeholder image for a project frame, keyed off its accent colour
+// Placeholder plate for an unfilled project frame. Small on purpose and shared
+// by every empty slot — it says "COMING SOON" and nothing more, so resolution
+// buys nothing. Each frame's own neon border already carries its accent colour.
+// Every size below is a fraction of the canvas, so PLATE_W is the only dial.
+const PLATE_W = 320
+const PLATE_H = 200
 export function makePlaceholderTexture(label, accent, sub = '') {
-  const w = 1024
-  const h = 640
+  const w = PLATE_W
+  const h = PLATE_H
   const c = document.createElement('canvas')
   c.width = w
   c.height = h
@@ -72,27 +33,29 @@ export function makePlaceholderTexture(label, accent, sub = '') {
   // faint grid
   g.strokeStyle = hexA(accent, 0.12)
   g.lineWidth = 1
-  for (let x = 64; x < w; x += 64) line(g, x, 0, x, h)
-  for (let y = 64; y < h; y += 64) line(g, 0, y, w, y)
+  const cell = w / 16
+  for (let x = cell; x < w; x += cell) line(g, x, 0, x, h)
+  for (let y = cell; y < h; y += cell) line(g, 0, y, w, y)
 
   // inner border
   g.strokeStyle = hexA(accent, 0.55)
-  g.lineWidth = 4
-  g.strokeRect(28, 28, w - 56, h - 56)
+  g.lineWidth = w / 256
+  const inset = w * 0.027
+  g.strokeRect(inset, inset, w - inset * 2, h - inset * 2)
 
   // labels
   g.textAlign = 'center'
   g.textBaseline = 'middle'
   g.shadowColor = hexA(accent, 0.9)
-  g.shadowBlur = 26
+  g.shadowBlur = w * 0.025
   g.fillStyle = '#f4f7ff'
-  g.font = `800 92px 'Space Grotesk', system-ui, sans-serif`
-  g.fillText(label, w / 2, h / 2 - 26)
+  g.font = `800 ${w * 0.09}px 'Space Grotesk', system-ui, sans-serif`
+  g.fillText(label, w / 2, h / 2 - h * 0.04)
   g.shadowBlur = 0
   if (sub) {
     g.fillStyle = hexA('#ffffff', 0.55)
-    g.font = `600 28px 'Inter', system-ui, sans-serif`
-    g.fillText(sub, w / 2, h / 2 + 62)
+    g.font = `600 ${w * 0.027}px 'Inter', system-ui, sans-serif`
+    g.fillText(sub, w / 2, h / 2 + h * 0.097)
   }
 
   const tex = new THREE.CanvasTexture(c)
@@ -102,8 +65,10 @@ export function makePlaceholderTexture(label, accent, sub = '') {
 }
 
 // Generic radial gradient texture (canvas)
+// A smooth radial ramp. 64px, not 512: linear filtering makes a gradient this
+// gentle look identical either way, at 1/64th the memory.
 export function makeRadialTexture(inner = '#ffffff', outer = '#000000', innerFrac = 0) {
-  const s = 512
+  const s = 64
   const c = document.createElement('canvas')
   c.width = s
   c.height = s

@@ -21,7 +21,12 @@ export const useTheatre = create((set) => ({
   phase: 'idle', // 'idle' | 'hint' | 'inside'
   project: null, // index 0..4 of the open popup, or null
   returnPos: null, // where to drop the player back on exit
-  setPhase: (phase) => set({ phase }),
+  // Latched the first time the player comes anywhere near the door, and never
+  // cleared: it mounts the room's interior early so walking in is free. Lives
+  // here rather than as component state so it is derived where the phase is
+  // set, instead of by an effect reacting to it.
+  warm: false,
+  setPhase: (phase) => set((s) => ({ phase, warm: s.warm || phase !== 'idle' })),
   openProject: (project) => set({ project }),
   closeProject: () => set({ project: null }),
 }))
@@ -41,7 +46,7 @@ export function enterTheatre() {
   body.setLinvel({ x: 0, y: 0, z: 0 }, true)
   body.setAngvel({ x: 0, y: 0, z: 0 }, true)
   playSfx('teleport', { gain: 0.85 })
-  useTheatre.setState({ phase: 'inside', project: null, returnPos: { x: p.x, y: p.y, z: p.z } })
+  useTheatre.setState({ phase: 'inside', warm: true, project: null, returnPos: { x: p.x, y: p.y, z: p.z } })
 }
 
 export function exitTheatre() {

@@ -85,7 +85,8 @@ export default function App() {
       </KeyboardControls>
       {!coverGone && <StartScreen onStart={onStart} stage={stage} leaving={entered} />}
       {touch && entered && <TouchControls />}
-      <Minimap />
+      {/* The map image is fetched only once Explore is clicked — see Minimap */}
+      <Minimap ready={entered} />
       <ShrineUI />
       <TheatreUI />
       <PortalUI />

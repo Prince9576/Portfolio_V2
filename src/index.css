@@ -77,6 +77,17 @@ canvas {
   height: 100%;
   object-fit: fill;
   display: block;
+  /* Arrives late and on its own, so it fades in rather than popping */
+  animation: minimapFade 0.45s ease both;
+}
+
+@keyframes minimapFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .minimap-dot {

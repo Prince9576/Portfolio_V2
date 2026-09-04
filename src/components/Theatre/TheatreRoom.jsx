@@ -6,7 +6,7 @@ import * as THREE from 'three'
 import { getPlayerBody, playerRef } from '../../stores/playerRef.js'
 import { PROJECTS } from '../../content/projects.js'
 import { exitTheatre, ROOM_CEIL, THEATRE_CENTER, useTheatre } from '../../stores/theatreStore.js'
-import { drawFloorText, makeFloorTextTexture, makePlaceholderTexture, makeRadialTexture } from './textures.js'
+import { makePlaceholderTexture, makeRadialTexture } from './textures.js'
 
 const C = THEATRE_CENTER
 const FLOOR_HALF = 16 // visual floor + its collider
@@ -31,8 +31,20 @@ const ALIGN_MAX_FRAMES = 150 // ~2.5s ceiling, long enough to outlast the fly-in
 const CAM_SETTLE_EPS = 0.05 // per-frame camera travel that counts as "parked"
 const ALIGN_TOLERANCE = 0.01 // radians
 const _camDir = new THREE.Vector3()
+const NO_RAYCAST = () => {}
+const PREWARM_PER_FRAME = 3 // meshes warmed per frame; see the prewarm in useFrame
 const PANEL_W = 4.2
 const PANEL_H = 2.6
+
+// Every light the room contributes, kept in one place because they are mounted
+// by the outer shell rather than by the interior — see the comment there.
+const THEATRE_LIGHTS = [
+  { pos: [C.x, 5.2, C.z], color: '#ff4d0a', intensity: 6, distance: 26 },
+  { pos: [C.x - 7, 3.4, C.z - 4], color: '#ff7a29', intensity: 4, distance: 18 },
+  { pos: [C.x + 7, 3.4, C.z + 4], color: '#8f260b', intensity: 4, distance: 18 },
+  // the exit arch's own glow
+  { pos: [EXIT.x, C.y + 1.7, EXIT.z - 0.8], color: '#ff4d0a', intensity: 2.2, distance: 9 },
+]
 
 // One framed project image, gently bobbing, hover-scaling, clickable.
 function Panel({ project, tex, position, rotationY, bobPhase, onOpen }) {
@@ -84,22 +96,31 @@ function Panel({ project, tex, position, rotationY, bobPhase, onOpen }) {
   )
 }
 
-// Everything inside the room
-function TheatreInterior({ openProject }) {
-  const floorTex = useTexture('/textures/theatre-floor.jpg')
+// Everything inside the room. Mounted from the moment the player comes within
+// range of the door and never unmounted again — see the comment at the mount
+// site for why.
+function TheatreInterior({ openProject, visible }) {
+  const gl = useThree((s) => s.gl)
+  const scene = useThree((s) => s.scene)
+  const shell = useRef(null)
+  const warmRef = useRef(null)
+  const floorTex = useTexture('/textures/theatre-floor.webp')
   useEffect(() => {
     floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping
-    floorTex.repeat.set(4, 4)
+    // 256px tile over a 4m span: ~64 texels per metre, which is all a dark
+    // stone floor needs. It was a 608px tile over 8m before.
+    floorTex.repeat.set(8, 8)
     floorTex.anisotropy = 8
     floorTex.colorSpace = THREE.SRGBColorSpace
     floorTex.needsUpdate = true
   }, [floorTex])
 
-  const floorText = useMemo(() => makeFloorTextTexture(), [])
-  // soft glow under the text (white→transparent radial, no hard ring)
-  const glowTex = useMemo(() => makeRadialTexture('#ffffff', '#000000', 0), [])
   // edge vignette: clear centre → opaque toward the rim
   const vignetteTex = useMemo(() => makeRadialTexture('#000000', '#ffffff', 0.55), [])
+  // Warm pool on the floor. The neon "PROJECT THEATRE" caption it used to sit
+  // under is gone — barely legible, and 8MB of texture for it — but without any
+  // glow the floor reads as void, and at 64px this costs 0.02MB.
+  const glowTex = useMemo(() => makeRadialTexture('#ffffff', '#000000', 0), [])
   // drei caches and owns these, so they are never disposed here — doing so would
   // break the next entry into the room.
   const loadedTex = useTexture(PANEL_IMAGES)
@@ -112,16 +133,21 @@ function TheatreInterior({ openProject }) {
   }, [loadedTex])
 
   // `plates` are the ones we drew ourselves, so they're ours to free — unlike
-  // the drei-cached textures above.
+  // the drei-cached textures above. One plate, shared by every empty slot: they
+  // all say the same thing, and their frames already differ in colour.
   const { panels, plates } = useMemo(() => {
     const drawn = []
+    let shared = null
     const out = PROJECTS.map((p, i) => {
       let tex
       if (p.image) {
         tex = loadedTex[PANEL_IMAGES.indexOf(p.image)]
       } else {
-        tex = makePlaceholderTexture(p.title.toUpperCase(), p.accent)
-        drawn.push(tex)
+        if (!shared) {
+          shared = makePlaceholderTexture('COMING SOON', '#ff7a29')
+          drawn.push(shared)
+        }
+        tex = shared
       }
       return {
         project: p,
@@ -134,28 +160,13 @@ function TheatreInterior({ openProject }) {
     return { panels: out, plates: drawn }
   }, [loadedTex])
 
-  // Redraw the floor caption once Orbitron has actually loaded.
-  useEffect(() => {
-    if (!document.fonts?.load) return
-    let alive = true
-    document.fonts.load("800 250px 'Orbitron'").then(() => {
-      if (!alive) return
-      drawFloorText(floorText.image)
-      floorText.needsUpdate = true
-    }).catch(() => {})
-    return () => {
-      alive = false
-    }
-  }, [floorText])
-
   useEffect(
     () => () => {
-      floorText.dispose()
-      glowTex.dispose()
       vignetteTex.dispose()
+      glowTex.dispose()
       plates.forEach((t) => t.dispose())
     },
-    [floorText, glowTex, vignetteTex, plates],
+    [vignetteTex, glowTex, plates],
   )
 
   const fillMat = useMemo(
@@ -210,13 +221,95 @@ function TheatreInterior({ openProject }) {
 
   const floorSize = FLOOR_HALF * 2
 
+  // Put the room on the GPU while it is still hidden, so walking in costs
+  // nothing. gl.compileAsync would link the shader programs, but textures only
+  // reach the GPU when something actually draws them and the uploads are the
+  // larger half of the bill — so this draws instead, into a 16x16 offscreen
+  // target where the pixels are irrelevant and binding each material is the
+  // whole point. The full scene, not just this subtree, because the program
+  // cache key includes the scene's light counts and warming the wrong programs
+  // would achieve nothing.
+  //
+  // A few meshes per frame rather than all at once: as a single render it was
+  // one 117ms frame, which is a dropped frame here and a visible stutter on a
+  // phone, where none of this work is parallel.
+  //
+  // Set up inside useFrame rather than in an effect on purpose. An effect that
+  // builds this and disposes it on cleanup is silently dead under StrictMode:
+  // mount, cleanup, mount again, and any `ran once` latch then blocks the
+  // rebuild. Measured exactly that — the prewarm did nothing and the cost
+  // reappeared on entry.
+  useFrame(() => {
+    const g = shell.current
+    if (!g || warmRef.current === 'done') return
+
+    let w = warmRef.current
+    if (!w) {
+      const queue = []
+      g.traverse((o) => {
+        if (o.isMesh || o.isPoints) queue.push(o)
+      })
+      const cam = new THREE.PerspectiveCamera(90, 1, 0.1, 80)
+      cam.position.set(C.x, C.y + 14, C.z)
+      cam.lookAt(C.x, C.y, C.z)
+      w = { queue, cam, rt: new THREE.WebGLRenderTarget(16, 16) }
+      warmRef.current = w
+    }
+
+    const batch = w.queue.splice(0, PREWARM_PER_FRAME)
+    if (!batch.length) {
+      w.rt.dispose()
+      warmRef.current = 'done'
+      return
+    }
+
+    // Show only this batch for one offscreen draw, then put everything back.
+    const shellVis = g.visible
+    const state = []
+    g.traverse((o) => {
+      if (!o.isMesh && !o.isPoints) return
+      state.push([o, o.visible, o.frustumCulled])
+      o.visible = batch.includes(o)
+      o.frustumCulled = false
+    })
+    g.visible = true
+    const prev = gl.getRenderTarget()
+    gl.setRenderTarget(w.rt)
+    gl.render(scene, w.cam)
+    gl.setRenderTarget(prev)
+    g.visible = shellVis
+    for (const [o, vis, culled] of state) {
+      o.visible = vis
+      o.frustumCulled = culled
+    }
+  })
+
+  // Reset rather than latch, so StrictMode's remount rebuilds the queue.
+  useEffect(
+    () => () => {
+      const w = warmRef.current
+      if (w && w !== 'done') w.rt.dispose()
+      warmRef.current = null
+    },
+    []
+  )
+
+  useEffect(() => {
+    const g = shell.current
+    if (!g) return
+    g.traverse((o) => {
+      if (!o.isMesh) return
+      if (!o.__raycast) o.__raycast = o.raycast
+      o.raycast = visible ? o.__raycast : NO_RAYCAST
+    })
+  }, [visible])
+
   return (
-    <group>
-      {/* lighting: low neon ambience + a few coloured point lights (no shadows) */}
+    <group ref={shell} visible={visible}>
+      {/* Ambience only. The coloured point lights live in the always-mounted
+          shell below — ambientLight is folded into a uniform and never reaches
+          the program cache key, so it alone is free to come and go. */}
       <ambientLight intensity={0.42} color="#4a2f26" />
-      <pointLight position={[C.x, 5.2, C.z]} color="#ff4d0a" intensity={6} distance={26} decay={2} />
-      <pointLight position={[C.x - 7, 3.4, C.z - 4]} color="#ff7a29" intensity={4} distance={18} decay={2} />
-      <pointLight position={[C.x + 7, 3.4, C.z + 4]} color="#8f260b" intensity={4} distance={18} decay={2} />
 
       {/* textured stone floor */}
       <mesh position={[C.x, C.y + 0.01, C.z]} rotation-x={-Math.PI / 2} receiveShadow>
@@ -228,15 +321,10 @@ function TheatreInterior({ openProject }) {
         <planeGeometry args={[floorSize, floorSize]} />
         <meshBasicMaterial color="#0a0806" transparent alphaMap={vignetteTex} depthWrite={false} />
       </mesh>
-      {/* soft faded glow pool under the centre text */}
+      {/* soft faded glow pool, so the floor has some presence */}
       <mesh position={[C.x, C.y + 0.02, C.z]} rotation-x={-Math.PI / 2} renderOrder={2}>
         <planeGeometry args={[15, 15]} />
         <meshBasicMaterial color="#7a2f12" map={glowTex} transparent opacity={0.5} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
-      </mesh>
-      {/* neon "PROJECT THEATRE" on the ground (reads upright from the +Z entrance) */}
-      <mesh position={[C.x, C.y + 0.03, C.z]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={3}>
-        <planeGeometry args={[12, 4.5]} />
-        <meshBasicMaterial map={floorText} transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
       </mesh>
 
       {/* ceiling + walls — dark, fogged, just enough to feel enclosed */}
@@ -292,7 +380,6 @@ function TheatreInterior({ openProject }) {
           <circleGeometry args={[1.6, 36]} />
           <meshBasicMaterial color="#ff4d0a" transparent opacity={0.25} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
         </mesh>
-        <pointLight position={[0, 1.7, 0.8]} color="#ff4d0a" intensity={2.2} distance={9} decay={2} />
       </group>
     </group>
   )
@@ -300,6 +387,8 @@ function TheatreInterior({ openProject }) {
 
 export default function TheatreRoom() {
   const inside = useTheatre((s) => s.phase === 'inside')
+  // Latched in the store the moment the player nears the door — see it there.
+  const warm = useTheatre((s) => s.warm)
   const openProject = useTheatre((s) => s.openProject)
   const camera = useThree((s) => s.camera)
 
@@ -356,6 +445,25 @@ export default function TheatreRoom() {
 
   return (
     <group>
+      {/* The room's point lights are mounted at all times and simply dark when
+          you're outside. three.js bakes the scene's light counts into every
+          material's program cache key, so mounting four lights with the room
+          re-links every shader in the city — and iOS/iPadOS has no parallel
+          shader compile, so it lands as a multi-second freeze walking in and
+          another walking out. Positions are the interior's, in world space
+          (its group carries no transform); the last is the exit arch's, which
+          sits at [EXIT.x, C.y, EXIT.z] rotated a half-turn about Y. */}
+      {THEATRE_LIGHTS.map(({ pos, color, intensity, distance }, i) => (
+        <pointLight
+          key={`tl${i}`}
+          position={pos}
+          color={color}
+          intensity={inside ? intensity : 0}
+          distance={distance}
+          decay={2}
+        />
+      ))}
+
       {/* Room shell colliders — always present so the teleport always lands solid.
           Walls sit inside the visible floor so the player can never walk off it. */}
       <RigidBody type="fixed" colliders={false}>
@@ -366,9 +474,19 @@ export default function TheatreRoom() {
         <CuboidCollider args={[WALL_HALF, ROOM_CEIL, 0.4]} position={[C.x, C.y + ROOM_CEIL, C.z - WALL_HALF]} />
       </RigidBody>
 
-      {inside && (
+      {/* Mounted as soon as the player is anywhere near the door, and kept
+          mounted for good — only its visibility follows `inside`.
+          Unmounting it on exit disposed 25 geometries, 6 textures and 4 shader
+          programs, so *every* visit rebuilt the room from scratch: measured at
+          200-270ms of frozen frame on entry, every single time, and worse on
+          iOS where shaders compile serially. Mounting it early turns that into
+          one cost, paid while the player is still walking up to the door, and
+          the pre-warm below moves even that off the entry frame. It holds its
+          textures in GPU memory for the session, which is what the resolutions
+          in textures.js and the 1024-wide panel art are kept honest for. */}
+      {warm && (
         <Suspense fallback={null}>
-          <TheatreInterior openProject={openProject} />
+          <TheatreInterior openProject={openProject} visible={inside} />
         </Suspense>
       )}
     </group>
@@ -376,5 +494,5 @@ export default function TheatreRoom() {
 }
 
 // Pull the floor texture down with the rest of the world's assets
-useTexture.preload('/textures/theatre-floor.jpg')
+useTexture.preload('/textures/theatre-floor.webp')
 PANEL_IMAGES.forEach((src) => useTexture.preload(src))

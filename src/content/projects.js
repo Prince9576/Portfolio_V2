@@ -2,7 +2,7 @@
 // opens; `accent` drives the panel's neon halo, and the room fans however many
 // are listed here.
 //
-// To fill an empty slot: drop a 1024x640 (8:5) PNG into public/images and set
+// To fill an empty slot: drop a 320x200 (8:5) WebP into public/images and set
 // `image` to its path, then replace the placeholder bullets. Leaving `image`
 // null draws a neon "COMING SOON" plate instead.
 
@@ -79,7 +79,7 @@ export const PROJECTS = [
     title: 'Job Postings & Campaigns',
     role: 'End-to-end frontend · React · TypeScript',
     accent: '#ff4d0a',
-    image: '/images/postings.png',
+    image: '/images/postings.webp',
     bullets: POSTINGS,
   },
   {
@@ -87,7 +87,7 @@ export const PROJECTS = [
     title: 'Data Grid Platform',
     role: 'Shared React + TypeScript library · ~14K LOC',
     accent: '#ff7a29',
-    image: '/images/grid.png',
+    image: '/images/grid.webp',
     bullets: GRID,
   },
   {

@@ -36,10 +36,28 @@ export default function Warmup({ onStage }) {
       finish()
     }, COMPILE_TIMEOUT_MS)
 
-    // compileAsync walks the whole scene graph and links every material's GPU program up front
+    // compileAsync walks the whole scene graph and links every material's GPU
+    // program up front — but only through the *visible* objects. Anything that
+    // starts hidden (the car's headlight glints, say) would otherwise link on
+    // first sight, which is a stall the moment you get in. Reveal everything for
+    // the pass and put it back once compile() has walked the graph; it walks it
+    // synchronously, so restoring on the microtask is safe. Any flicker lands
+    // behind the loading cover.
+    const hidden = []
+    scene.traverse((o) => {
+      if (!o.visible) {
+        hidden.push(o)
+        o.visible = true
+      }
+    })
+    const restore = () => {
+      for (const o of hidden) o.visible = false
+    }
+
     Promise.resolve(gl.compileAsync?.(scene, camera))
       .catch((e) => console.warn('[warmup] shader precompile failed:', e))
       .then(() => {
+        restore()
         clearTimeout(watchdog)
         finish()
       })

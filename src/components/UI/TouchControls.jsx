@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useJoystickControls } from 'ecctrl'
+import { resetTouchStick, touchInput } from '../../stores/touchInput.js'
+import { useVehicle } from '../../stores/vehicleStore.js'
 
 // Push past this fraction of the knob's travel to sprint.
 const RUN_AT = 0.72
@@ -14,7 +16,13 @@ const RUN_AT = 0.72
 // Touch Events, so it can't be driven by a mouse in a desktop responsive view.
 // Ecctrl itself just reads the joystick store each frame — it only needs a
 // distance above zero, an angle and a run flag — so we feed that directly.
+//
+// The same push is also published to `touchInput` as plain -1..1 axes. Ecctrl's
+// store is in pixels and is ignored entirely while `disableControl` is set, so
+// the car — which is driven by raw key state, not by ecctrl — reads that
+// instead. Without it the stick does nothing at all once you're behind a wheel.
 export default function TouchControls() {
+  const driving = useVehicle((s) => s.phase === 'driving')
   const zoneRef = useRef(null)
   const knobRef = useRef(null)
   const setJoystick = useJoystickControls((s) => s.setJoystick)
@@ -45,6 +53,7 @@ export default function TouchControls() {
       if (dis < 1) {
         knob.style.transform = 'translate(-50%, -50%)'
         resetJoystick()
+        resetTouchStick()
         return
       }
       // Vector2.angle() semantics: counter-clockwise from +X, normalised to 0..2pi
@@ -54,6 +63,8 @@ export default function TouchControls() {
       const ky = Math.sin(ang) * dis
       knob.style.transform = `translate(calc(-50% + ${kx}px), calc(-50% - ${ky}px))`
       setJoystick(dis, ang, dis > maxDis * RUN_AT)
+      touchInput.x = kx / maxDis
+      touchInput.y = ky / maxDis
     }
 
     const onDown = (e) => {
@@ -73,6 +84,7 @@ export default function TouchControls() {
       zone.classList.remove('active')
       knob.style.transform = 'translate(-50%, -50%)'
       resetJoystick()
+      resetTouchStick()
     }
 
     zone.addEventListener('pointerdown', onDown)
@@ -85,6 +97,7 @@ export default function TouchControls() {
       zone.removeEventListener('pointerup', onUp)
       zone.removeEventListener('pointercancel', onUp)
       resetJoystick()
+      resetTouchStick()
     }
   }, [setJoystick, resetJoystick])
 
@@ -93,18 +106,31 @@ export default function TouchControls() {
       <div className="tc-stick" ref={zoneRef}>
         <span className="tc-knob" ref={knobRef} />
       </div>
+      {/* Jump on foot, turbo behind the wheel — Shift does double duty on a
+          keyboard for the same reason, and one button is all the thumb has. */}
       <button
         className="tc-jump"
-        aria-label="Jump"
+        aria-label={driving ? 'Turbo' : 'Jump'}
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId)
           pressButton1()
+          touchInput.boost = true
         }}
-        onPointerUp={releaseAllButtons}
-        onPointerCancel={releaseAllButtons}
+        onPointerUp={() => {
+          releaseAllButtons()
+          touchInput.boost = false
+        }}
+        onPointerCancel={() => {
+          releaseAllButtons()
+          touchInput.boost = false
+        }}
       >
         <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 5l6 7h-4v7h-4v-7H6z" fill="currentColor" />
+          {driving ? (
+            <path d="M13 2L5 13h4l-1 9 8-11h-4z" fill="currentColor" />
+          ) : (
+            <path d="M12 5l6 7h-4v7h-4v-7H6z" fill="currentColor" />
+          )}
         </svg>
       </button>
     </>

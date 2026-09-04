@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { Sparkles, useGLTF } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
-import { CuboidCollider, RigidBody } from '@react-three/rapier'
+import { CuboidCollider, RigidBody, useRapier } from '@react-three/rapier'
 import * as THREE from 'three'
 import meta from '../../content/worldMeta.json'
 import { getPlayerBody } from '../../stores/playerRef.js'
+import { touchInput } from '../../stores/touchInput.js'
 import { useVehicle } from '../../stores/vehicleStore.js'
 import { enterCarMusic, exitCarMusic } from '../../stores/ambientMusic.js'
+import { BOOM_RADIUS, boomDistance, boomEnabled } from '../../utils/cameraBoom.js'
 import { playSfx, setEngine, startEngine, stopEngine } from '../../utils/sfx.js'
 import { buildCarVisual, hideCarInstance, pickDrivableCar } from './carSource.js'
 
@@ -26,6 +28,12 @@ const FORWARD_SIGN = 1 // flip to -1 if W/Up drives the car backwards
 const CAM_DIST = 7.5 // chase camera distance behind the car
 const CAM_HEIGHT = 3.2 // chase camera height
 const CAM_LERP = 6 // chase camera smoothing
+const CAM_MIN_DIST = 2.6 // closest the arm may fold when something is behind you
+
+// Analog stick: full throttle/lock at 70% of the knob's travel, so you can hold
+// the throttle down and still have travel left to steer with.
+const STICK_DEAD = 0.12
+const STICK_FULL = 0.7
 
 // Crash SFX: read the contact force the solver already computed
 const CRASH_MIN_FORCE = 80 // below this a contact is just a nudge
@@ -51,6 +59,7 @@ const _fwd = new THREE.Vector3()
 const _look = new THREE.Vector3()
 const _want = new THREE.Vector3()
 const _right = new THREE.Vector3()
+const _arm = new THREE.Vector3()
 // Scratch for tyre-mark placement
 const _v = new THREE.Vector3()
 const _v2 = new THREE.Vector3()
@@ -132,6 +141,20 @@ export default function DrivableCar() {
   const camera = useThree((s) => s.camera)
   const lightRef = useRef(null)
 
+  // Chase-camera occlusion, against the physics colliders (see cameraBoom.js)
+  const { rapier, world } = useRapier()
+  const boomShape = useMemo(() => new rapier.Ball(BOOM_RADIUS), [rapier])
+  const boomState = useRef({})
+  // The car you're sitting in and the capsule you left behind must not block it
+  const boomFilter = useMemo(
+    () => (collider) => {
+      const body = collider.parent()
+      if (!body) return true
+      return body.handle !== carBody.current?.handle && body.handle !== getPlayerBody()?.handle
+    },
+    []
+  )
+
   // Tyre marks (pooled, world-space) + crash-sound cooldown + headlight aim.
   const skidRef = useRef(null)
   const skidWrite = useRef(0) // monotonic counter; index = write % SKID_POOL
@@ -186,6 +209,7 @@ export default function DrivableCar() {
     skidDist.current = 0
     const t = carBody.current.translation()
     lastPos.current.set(t.x, t.y, t.z) // avoid a huge first-frame delta
+    boomState.current.dist = undefined // start the chase arm at full length
     pb.setEnabled(false) // freeze + decollide the character while driving
     setPhase('driving')
     enterCarMusic()
@@ -266,14 +290,24 @@ export default function DrivableCar() {
     const cur = useVehicle.getState().phase
 
     if (cur === 'driving') {
+      // The beacon light stays in the scene (see the JSX below) — only dark
+      if (lightRef.current) lightRef.current.intensity = 0
       const q = cb.rotation()
       _fwd.set(0, 0, FORWARD_SIGN).applyQuaternion(_q.set(q.x, q.y, q.z, q.w))
       _fwd.y = 0
       _fwd.normalize()
 
+      // Input: keys first, on-screen stick when they're idle. The stick is the
+      // only way to drive on a phone or tablet — ecctrl's joystick store can't
+      // serve here (it carries pixels, and it's ignored while disableControl is
+      // set), so TouchControls publishes normalised axes to `touchInput`.
+      const stickY = Math.abs(touchInput.y) > STICK_DEAD ? THREE.MathUtils.clamp(touchInput.y / STICK_FULL, -1, 1) : 0
+      const stickX = Math.abs(touchInput.x) > STICK_DEAD ? THREE.MathUtils.clamp(touchInput.x / STICK_FULL, -1, 1) : 0
+
       // Ramped acceleration: hold to build speed, ease off to coast, reverse to brake
-      const throttle = (keys.current.f ? 1 : 0) - (keys.current.b ? 1 : 0)
-      const boosting = keys.current.boost && throttle > 0
+      const keyThrottle = (keys.current.f ? 1 : 0) - (keys.current.b ? 1 : 0)
+      const throttle = keyThrottle !== 0 ? keyThrottle : stickY
+      const boosting = (keys.current.boost || touchInput.boost) && throttle > 0
       const accel = boosting ? BOOST_ACCEL : ACCEL
       const cap = boosting ? BOOST_SPEED : MAX_SPEED
       let s = speedRef.current
@@ -295,8 +329,10 @@ export default function DrivableCar() {
       const v = cb.linvel()
       cb.setLinvel({ x: _fwd.x * s, y: v.y, z: _fwd.z * s }, true)
 
-      // Steer only while rolling; reverse the sense when backing up.
-      const steer = (keys.current.l ? 1 : 0) - (keys.current.r ? 1 : 0)
+      // Steer only while rolling; reverse the sense when backing up. Analog off
+      // the stick, so a small push is a gentle turn.
+      const keySteer = (keys.current.l ? 1 : 0) - (keys.current.r ? 1 : 0)
+      const steer = keySteer !== 0 ? keySteer : -stickX
       const grip = THREE.MathUtils.clamp(Math.abs(s) / 2, 0, 1)
       cb.setAngvel({ x: 0, y: steer * TURN_RATE * grip * Math.sign(s), z: 0 }, true)
 
@@ -334,11 +370,40 @@ export default function DrivableCar() {
         skidDist.current = MARK_SPACING // first mark of the next slide lands instantly
       }
 
-      // Chase camera locked behind the car.
+      // Chase camera locked behind the car, folded in when a building, a parked
+      // car or a palm trunk gets between it and the roof.
       _look.set(c.x, c.y + 1, c.z)
       _want.copy(_look).addScaledVector(_fwd, -CAM_DIST)
       _want.y += CAM_HEIGHT
+      _arm.copy(_want).sub(_look)
+      const full = _arm.length()
+      _arm.divideScalar(full)
+      const arm = !boomEnabled.value ? full : boomDistance({
+        world,
+        shape: boomShape,
+        origin: _look,
+        dir: _arm,
+        dist: full,
+        minDist: CAM_MIN_DIST,
+        exclude: boomFilter,
+        state: boomState.current,
+        dt,
+      })
+      _want.copy(_look).addScaledVector(_arm, arm)
       camera.position.lerp(_want, 1 - Math.exp(-CAM_LERP * dt))
+      // The lerp lags the arm through a tight corner, which is exactly when the
+      // camera would end up inside a wall — so floor it at what the cast allows.
+      // Gated on there actually being an occluder: the camera trails the car
+      // under acceleration and is legitimately further away than the arm, so an
+      // ungated cap fires every frame in open street, pins the camera to a fixed
+      // distance and cancels CAM_LERP outright — welding it to the car's physics
+      // jitter. Measured at twice the frame-to-frame shake of no boom at all.
+      if (import.meta.env.DEV) window.__carArm = { arm, full, raw: boomState.current.raw }
+      const hard = boomState.current.raw
+      if (hard < full - 0.01) {
+        _arm.copy(camera.position).sub(_look)
+        if (_arm.length() > hard) camera.position.copy(_look).addScaledVector(_arm.normalize(), hard)
+      }
       camera.lookAt(_look)
       return
     }
@@ -432,6 +497,14 @@ export default function DrivableCar() {
           <meshBasicMaterial color="#fff6da" toneMapped={false} />
         </mesh>
 
+      {/* The beacon's pointLight is mounted AND visible at all times, dimmed to
+          zero while driving instead of hidden. three.js bakes the scene's light
+          counts into every material's program cache key, so making one light
+          invisible re-links every shader in the city. iOS/iPadOS has no parallel
+          shader compile, so that arrives as a multi-second freeze getting in and
+          another getting out. Same reason the headlights above never unmount. */}
+      <pointLight ref={lightRef} position={[0, half[1] + 0.8, 0]} color={MARKER} intensity={0} distance={9} decay={2} />
+
       {/* Always-on "this car is special" beacon — same shrine vocabulary: a
           rising neon-blue light pillar + ground glow + drifting sparkles +
           breathing light. Hidden the moment you get in; kept mounted so it never
@@ -457,7 +530,6 @@ export default function DrivableCar() {
           opacity={0.85}
           color={MARKER}
         />
-        <pointLight ref={lightRef} position={[0, half[1] + 0.8, 0]} color={MARKER} intensity={1.8} distance={9} decay={2} />
       </group>
       </RigidBody>
     </>

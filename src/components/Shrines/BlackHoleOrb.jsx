@@ -27,7 +27,15 @@ const fragmentShader = /* glsl */ `
 
   // ---- tunables (ported from the reference config) -------------------------
   #define STEPS            ${QUALITY.orbSteps}      // raymarch iterations
-  #define STEP_SIZE        1.0
+  // How far a ray may travel, in world units. This must comfortably exceed
+  // CAM_DIST or rays never reach the centre and there is no black core at all —
+  // which is exactly what happened on phones, where STEPS was lowered to 16 for
+  // performance while STEP_SIZE stayed at 1.0. Sixteen steps of 1.0 from 18
+  // units out leaves the ray stranded at r = 3.0, with the event horizon at
+  // 0.808. Deriving the step from the reach keeps the picture the same at any
+  // quality tier and only changes how coarsely the path is sampled.
+  #define MARCH_REACH      32.0
+  #define STEP_SIZE        (MARCH_REACH / float(STEPS))
   #define BH_MASS          0.4     // rs = mass * 2
   #define DISK_INNER       4.1
   #define DISK_OUTER       14.5
@@ -151,7 +159,6 @@ const fragmentShader = /* glsl */ `
     for (int i = 0; i < STEPS; i++) {
       if (alpha > 0.99) break;
       float r = length(rayPos);
-      if (r < rs * 1.01) { captured = 1.0; break; }
       if (r > 100.0) break;
 
       vec3 toCenter = -rayPos / r;
@@ -161,7 +168,8 @@ const fragmentShader = /* glsl */ `
       prevPos = rayPos;
       rayPos += rayDir * STEP_SIZE;
 
-      // disk-plane crossing
+      // disk-plane crossing — before the capture test below, so a disk in front
+      // of the hole still paints on the segment that falls in.
       if (prevPos.y * rayPos.y < 0.0 && alpha < 0.99) {
         float t = -prevPos.y / (rayPos.y - prevPos.y);
         vec3 hitPos = mix(prevPos, rayPos, t);
@@ -174,6 +182,15 @@ const fragmentShader = /* glsl */ `
           alpha += remaining * disk.a;
         }
       }
+
+      // Captured? Ask whether the whole segment passed inside the horizon, not
+      // just its endpoints. The horizon is only ~1.6 across, so once STEP_SIZE
+      // approaches that, sampling the endpoints alone lets rays jump clean over
+      // it and the core comes out pocked with holes.
+      vec3 seg = rayPos - prevPos;
+      float segLen2 = max(dot(seg, seg), 1e-6);
+      float tc = clamp(-dot(prevPos, seg) / segLen2, 0.0, 1.0);
+      if (length(prevPos + seg * tc) < rs * 1.01) { captured = 1.0; break; }
     }
 
     // captured rays -> opaque void (occludes the world behind);
